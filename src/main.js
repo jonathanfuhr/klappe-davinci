@@ -299,6 +299,9 @@ function registerHandlers() {
   handle('klappe:targets:projects', async () => upload.projects());
   handle('klappe:targets:videos', async (projectId) => upload.videos(projectId));
   handle('klappe:targets:versions', async (videoId) => upload.versions(videoId));
+  handle('klappe:targets:createProject', async (name, customer) =>
+    upload.createProject(name, customer),
+  );
   handle('klappe:targets:createVideo', async (projectId, name, description) =>
     upload.createVideo(projectId, name, description),
   );

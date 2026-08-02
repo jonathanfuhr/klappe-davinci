@@ -181,11 +181,14 @@ function zeitpunkt(iso) {
  * dieselben Listen – der Upload-Dialog und das Zuordnen –, deshalb stehen sie
  * hier einmal und nicht zweimal.
  */
-async function fuelleProjekte(feld, vorauswahl) {
+async function fuelleProjekte(feld, vorauswahl, { mitNeu = false } = {}) {
   const projekte = await aufruf(window.klappe.projects());
   if (!projekte) return null;
 
   feld.textContent = '';
+  // Nur im Upload-Dialog: Beim Zuordnen einer vorhandenen Fassung wäre ein
+  // frisches, leeres Projekt sinnlos.
+  if (mitNeu) feld.appendChild(option('__neu__', `➕ ${t('Neues Projekt anlegen')}`));
   for (const projekt of projekte) {
     feld.appendChild(
       option(projekt.id, projekt.customer ? `${projekt.name} (${projekt.customer})` : projekt.name, {
@@ -676,7 +679,9 @@ async function ladeHochladen() {
   }
 
   if (projekteGeladen) return;
-  const projekte = await fuelleProjekte(el('ziel-projekt'), zustand.mapping?.projectId);
+  const projekte = await fuelleProjekte(el('ziel-projekt'), zustand.mapping?.projectId, {
+    mitNeu: true,
+  });
   if (!projekte) return;
   projekteGeladen = true;
 
@@ -713,10 +718,23 @@ function zeigeAblageZeile() {
 }
 
 async function ladeVideosFuerUpload(projectId) {
-  await fuelleVideos(el('ziel-video'), projectId, {
-    mitNeu: true,
-    vorauswahl: zustand.mapping?.videoId,
-  });
+  const neuesProjekt = projectId === '__neu__';
+  el('neues-projekt').classList.toggle('versteckt', !neuesProjekt);
+
+  if (neuesProjekt) {
+    // Ein Projekt, das es noch nicht gibt, hat auch keine Videos. Die Auswahl
+    // steht dann fest, statt eine leere Liste anzubieten.
+    const feld = el('ziel-video');
+    feld.textContent = '';
+    feld.appendChild(option('__neu__', `➕ ${t('Neues Video anlegen')}`));
+    feld.value = '__neu__';
+  } else {
+    await fuelleVideos(el('ziel-video'), projectId, {
+      mitNeu: true,
+      vorauswahl: zustand.mapping?.videoId,
+    });
+  }
+
   await ladeFassungenFuerUpload();
 }
 
@@ -735,10 +753,27 @@ function zeigeErsetzenWarnung() {
 
 /** Das Ziel, wie es im Upload-Formular steht. */
 async function ermittleZiel() {
-  const projectId = el('ziel-projekt').value;
-  const projectName = el('ziel-projekt').selectedOptions[0]?.dataset.name || '';
+  let projectId = el('ziel-projekt').value;
+  let projectName = el('ziel-projekt').selectedOptions[0]?.dataset.name || '';
   let videoId = el('ziel-video').value;
   let videoName = el('ziel-video').selectedOptions[0]?.dataset.name || '';
+
+  // Zuerst das Projekt: Ohne seine ID lässt sich kein Video darin anlegen.
+  if (projectId === '__neu__') {
+    const name = el('neues-projekt-name').value.trim();
+    if (!name) {
+      status(t('Der Name des neuen Projekts fehlt.'), 'fehler');
+      return null;
+    }
+    const projekt = await aufruf(
+      window.klappe.createProject(name, el('neues-projekt-kunde').value.trim()),
+    );
+    if (!projekt) return null;
+    projectId = projekt.id;
+    projectName = projekt.name;
+    // Die Liste ist veraltet, sobald etwas dazugekommen ist.
+    projekteGeladen = false;
+  }
 
   if (videoId === '__neu__') {
     const name = el('neues-video-name').value.trim();

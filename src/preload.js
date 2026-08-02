@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('klappe', {
   projects: () => call('klappe:targets:projects'),
   videos: (projectId) => call('klappe:targets:videos', projectId),
   versions: (videoId) => call('klappe:targets:versions', videoId),
+  createProject: (name, customer) => call('klappe:targets:createProject', name, customer),
   createVideo: (projectId, name, description) =>
     call('klappe:targets:createVideo', projectId, name, description),
   versionSettings: () => call('klappe:targets:settings'),

@@ -151,6 +151,13 @@ Resolve rendert in einen Zwischenordner, das Panel überträgt die Datei per tus
 und wartet, bis Klappe sie verarbeitet hat. Danach steht „Im Browser öffnen"
 bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
 
+- **Ziel:** Projekt → Video → Fassung. Sowohl das Projekt als auch das Video
+  lassen sich hier neu anlegen – eine Produktion kann also komplett aus Resolve
+  heraus entstehen. Beim neuen Projekt gehört der **Kunde** dazu: Er geht in die
+  Download-Dateinamen ein (`260802_Kunde_Teaser_v1_1080p25.mov`) und damit auch
+  in den Namen, unter dem die Zweitablage im Projektordner landet. Ein Projekt,
+  das es noch nicht gibt, hat keine Videos – die Videoauswahl steht dann fest
+  auf „neu", statt eine leere Liste anzubieten.
 - **Bereich:** ab Werk wie in Resolve – In/Out, wenn gesetzt, sonst die ganze
   Timeline. Der verwendete Bereich wandert in die Zuordnung; er ist der
   Frame-Offset für Marker und Overlays.

@@ -75,6 +75,14 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       merkt sich den Render-Anfang
 - [ ] „Immer die ganze Timeline" ignoriert ein gesetztes In/Out
 - [ ] **Neues Video anlegen** funktioniert und wird gleich zum Ziel
+- [ ] **Neues Projekt anlegen** funktioniert; die Videoauswahl steht dabei fest
+      auf „neu", und beides entsteht in einem Durchgang
+- [ ] Der eingetragene **Kunde** taucht im Download-Dateinamen der Fassung auf
+- [ ] Neues Projekt ohne Namen → Meldung statt Start
+- [ ] Nach dem Anlegen steht das neue Projekt beim nächsten Öffnen des
+      Upload-Reiters in der Liste
+- [ ] Beim **Zuordnen** (Kommentare-Reiter) gibt es **kein** „Neues Projekt" –
+      dort wird eine vorhandene Fassung verknüpft
 - [ ] **Fassung ersetzen** fragt vorher nach und behält die Nummer
 - [ ] Belegte Nummer ohne Ersetzen → verständliche Meldung statt `409`
 - [ ] Netzwerk mitten im Upload trennen (WLAN aus) → nach dem Wiederverbinden

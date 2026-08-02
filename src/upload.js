@@ -43,6 +43,18 @@ async function versions(videoId) {
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * Neues Projekt anlegen. `customer` ist nicht bloß Zierde: Der Kunde geht in
+ * die Download-Dateinamen ein (`260802_Kunde_Teaser_v1_1080p25.mov`) und damit
+ * auch in den Namen, unter dem die Zweitablage im Projektordner landet.
+ */
+async function createProject(name, customer) {
+  return api.post('/v1/projects', {
+    name,
+    ...(customer ? { customer } : {}),
+  });
+}
+
 async function createVideo(projectId, name, description) {
   return api.post(`/v1/projects/${projectId}/videos`, {
     name,
@@ -539,6 +551,7 @@ module.exports = {
   projects,
   videos,
   versions,
+  createProject,
   createVideo,
   versionSettings,
   serverVersionSettings,
