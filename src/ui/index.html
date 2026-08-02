@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self'; img-src 'self' data:;"
+    />
+    <title>Klappe</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="kopf">
+      <div class="kopf-titel">
+        <span class="marke">Klappe</span>
+        <span id="verbindung" class="ampel" title="Verbindung">•</span>
+      </div>
+      <div id="konto" class="kopf-konto">nicht verbunden</div>
+    </header>
+
+    <section id="kontext" class="kontext">
+      <div id="kontext-text">Resolve wird abgefragt …</div>
+      <button id="kontext-neu" class="leise" title="Projekt und Timeline neu einlesen">
+        Aktualisieren
+      </button>
+    </section>
+
+    <nav class="reiter">
+      <button data-ansicht="kommentare" class="aktiv">Kommentare</button>
+      <button data-ansicht="hochladen">Hochladen</button>
+      <button data-ansicht="einstellungen">Einstellungen</button>
+    </nav>
+
+    <main>
+      <!-- ------------------------------------------------------ Kommentare -->
+      <section id="ansicht-kommentare" class="ansicht">
+        <div id="zuordnung" class="karte"></div>
+
+        <!--
+          Zuordnen ist ein eigener Vorgang, kein halber Upload: Wer von Hand
+          exportiert und im Browser hochgeladen hat, soll die Timeline mit
+          dieser Fassung verknüpfen können, ohne in den Upload-Dialog zu
+          geraten.
+        -->
+        <div id="zuordnen-form" class="karte versteckt">
+          <label class="feld">
+            <span>Projekt</span>
+            <select id="zu-projekt"></select>
+          </label>
+          <label class="feld">
+            <span>Video</span>
+            <select id="zu-video"></select>
+          </label>
+          <label class="feld">
+            <span>Fassung</span>
+            <select id="zu-fassung"></select>
+          </label>
+          <label class="feld">
+            <span>Render-Anfang in der Timeline (Frame)</span>
+            <input id="zu-renderin" type="number" min="0" step="1" value="0" />
+            <span class="klein">
+              0 heißt: Das erste Bild der Fassung ist das erste Bild der Timeline. Wurde nur ein
+              Bereich ausgespielt, steht hier dessen erster Frame – ab Timeline-Anfang gezählt.
+              Der Knopf daneben übernimmt das gesetzte In/Out.
+            </span>
+          </label>
+          <div class="werkzeuge">
+            <button id="zu-uebernehmen" class="wichtig">Übernehmen</button>
+            <button id="zu-aus-inout" class="leise">In/Out übernehmen</button>
+            <button id="zu-abbrechen" class="leise">Abbrechen</button>
+          </div>
+        </div>
+
+        <div class="werkzeuge">
+          <button id="marker-setzen">Marker setzen</button>
+          <button id="overlays-setzen">Zeichnungen einfügen</button>
+          <button id="overlays-sichtbar" title="Vor einem Export von Hand ausblenden – beim Ausspielen über dieses Panel passiert das automatisch">
+            Zeichnungen ausblenden
+          </button>
+          <button id="alles-weg" class="leise">Aufräumen</button>
+        </div>
+
+        <!-- Was beim Setzen passiert ist, im Klartext – die Statuszeile hat
+             für „drei von fünf, und warum" zu wenig Platz. -->
+        <div id="timeline-ergebnis" class="karte versteckt"></div>
+
+        <div class="filterzeile">
+          <label><input type="radio" name="filter" value="offen" checked /> offene</label>
+          <label><input type="radio" name="filter" value="alle" /> alle</label>
+          <span id="kommentar-zahl" class="zahl"></span>
+          <button id="kommentare-neu" class="leise">Neu laden</button>
+        </div>
+
+        <ul id="kommentarliste" class="liste"></ul>
+      </section>
+
+      <!-- ------------------------------------------------------- Hochladen -->
+      <section id="ansicht-hochladen" class="ansicht versteckt">
+        <div class="karte">
+          <label class="feld">
+            <span>Render-Preset</span>
+            <select id="preset"></select>
+          </label>
+
+          <label class="feld">
+            <span>Bereich</span>
+            <select id="bereich">
+              <option value="auto">Wie in Resolve (In/Out, sonst ganze Timeline)</option>
+              <option value="ganz">Immer die ganze Timeline</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="karte">
+          <label class="feld">
+            <span>Projekt</span>
+            <select id="ziel-projekt"></select>
+          </label>
+
+          <label class="feld">
+            <span>Video</span>
+            <select id="ziel-video"></select>
+          </label>
+
+          <div id="neues-video" class="versteckt">
+            <label class="feld">
+              <span>Name des neuen Videos</span>
+              <input id="neues-video-name" type="text" placeholder="z. B. Teaser 30s" />
+            </label>
+          </div>
+
+          <label class="feld">
+            <span>Fassung</span>
+            <select id="ziel-fassung">
+              <option value="neu">Neue Fassung (Nummer zählt Klappe weiter)</option>
+            </select>
+          </label>
+
+          <label class="feld">
+            <span>Beschriftung (optional)</span>
+            <input id="ziel-label" type="text" placeholder="z. B. Farbkorrektur" />
+          </label>
+
+          <label id="intern-zeile" class="haken versteckt">
+            <input id="ziel-intern" type="checkbox" />
+            <span>Als interne Fassung hochladen (erst nach Freigabe für Gäste sichtbar)</span>
+          </label>
+          <p id="intern-hinweis" class="klein versteckt"></p>
+        </div>
+
+        <div id="ersetzen-warnung" class="warnung versteckt">
+          Beim Ersetzen verschwinden die Kommentare der alten Fassung mit ihr – sie hängen an
+          Frames eines Ausspielens, das es dann nicht mehr gibt.
+        </div>
+
+        <div class="werkzeuge">
+          <button id="hochladen-start" class="wichtig">Rendern und hochladen</button>
+          <button id="hochladen-abbruch" class="leise versteckt">Abbrechen</button>
+        </div>
+
+        <div id="fortschritt" class="fortschritt versteckt">
+          <div class="balken"><div id="balken-fuellung"></div></div>
+          <div id="fortschritt-text" class="klein"></div>
+        </div>
+
+        <div id="upload-ergebnis" class="karte versteckt"></div>
+      </section>
+
+      <!-- --------------------------------------------------- Einstellungen -->
+      <section id="ansicht-einstellungen" class="ansicht versteckt">
+        <div class="karte">
+          <label class="feld">
+            <span>Adresse der Klappe-Instanz</span>
+            <input id="server-url" type="text" placeholder="https://klappe.example.de" />
+          </label>
+          <div class="werkzeuge">
+            <button id="server-speichern">Speichern</button>
+            <button id="verbinden" class="wichtig">Verbinden</button>
+            <button id="trennen" class="leise versteckt">Verbindung trennen</button>
+          </div>
+          <div id="kopplung" class="kopplung versteckt">
+            <p class="klein">Diesen Code im Browser bestätigen:</p>
+            <div id="benutzercode" class="code"></div>
+            <div class="werkzeuge">
+              <button id="kopplung-browser">Im Browser öffnen</button>
+              <button id="kopplung-abbruch" class="leise">Abbrechen</button>
+            </div>
+            <p id="kopplung-status" class="klein"></p>
+          </div>
+          <p id="token-ablage" class="klein"></p>
+        </div>
+
+        <div class="karte">
+          <label class="feld">
+            <span>Markerfarbe – offene Kommentare</span>
+            <select id="farbe-offen"></select>
+          </label>
+          <label class="feld">
+            <span>Markerfarbe – erledigte Kommentare</span>
+            <select id="farbe-erledigt"></select>
+          </label>
+          <label class="haken">
+            <input id="allgemeine-marker" type="checkbox" />
+            <span>Allgemeine Kommentare als Marker auf dem ersten Bild</span>
+          </label>
+          <label class="feld">
+            <span>Standdauer der Zeichnungen (Frames)</span>
+            <input id="overlay-frames" type="number" min="1" step="1" />
+          </label>
+        </div>
+
+        <!--
+          Resolve bringt mehrere Dutzend Presets mit; im Haus benutzt man drei.
+          Ohne Auswahl steht im Upload-Dialog die ganze Liste – das ist die
+          ehrliche Vorgabe, aber nicht die brauchbare.
+        -->
+        <div class="karte">
+          <label class="feld">
+            <span>Interne Fassungen</span>
+            <select id="intern-modus">
+              <option value="immer">
+                Immer intern hochladen – Freigabe nach dem Review
+              </option>
+              <option value="wahl">Je Upload entscheiden (Haken im Dialog)</option>
+            </select>
+            <span class="klein">
+              Kennt der Server die interne Runde nicht, wird ohnehin immer extern hochgeladen.
+            </span>
+          </label>
+          <div class="werkzeuge">
+            <button id="intern-speichern">Speichern</button>
+          </div>
+        </div>
+
+        <div class="karte">
+          <div class="feld">
+            <span>Render-Presets im Upload-Dialog</span>
+            <p id="preset-hinweis" class="klein"></p>
+          </div>
+          <div id="preset-liste" class="hakenliste"></div>
+          <div class="werkzeuge">
+            <button id="presets-speichern">Speichern</button>
+            <button id="presets-alle" class="leise">Alle</button>
+            <button id="presets-keine" class="leise">Keine</button>
+            <button id="presets-neu" class="leise">Aus Resolve neu einlesen</button>
+          </div>
+          <label class="feld">
+            <span>Vorgewählt im Upload-Dialog</span>
+            <select id="preset-vorgabe"></select>
+          </label>
+          <p class="klein">
+            Eigene Presets sind immer dabei und stehen ohne Haken in der Liste – wer sich eins
+            anlegt, will es benutzen.
+          </p>
+        </div>
+
+        <div class="karte">
+          <label class="feld">
+            <span>Ablage der Zeichnungen (leer = Benutzerordner)</span>
+            <span class="pfadzeile">
+              <input id="overlay-pfad" type="text" placeholder="gemeinsamer Ordner" />
+              <button data-pfad="overlayPath" class="leise">…</button>
+            </span>
+          </label>
+          <label class="feld">
+            <span>Ablage der Zuordnung (leer = Benutzerordner)</span>
+            <span class="pfadzeile">
+              <input id="mapping-pfad" type="text" placeholder="gemeinsamer Ordner" />
+              <button data-pfad="mappingPath" class="leise">…</button>
+            </span>
+          </label>
+          <label class="feld">
+            <span>Zwischenordner fürs Rendern (leer = Systemtemp)</span>
+            <span class="pfadzeile">
+              <input id="render-pfad" type="text" placeholder="schnelle Arbeitsplatte" />
+              <button data-pfad="renderDir" class="leise">…</button>
+            </span>
+          </label>
+          <div class="werkzeuge">
+            <button id="pfade-speichern">Speichern</button>
+          </div>
+          <p id="pfad-hinweis" class="klein"></p>
+        </div>
+
+        <!-- Ein UHD-Master ist schnell 40 GB groß und entsteht in einem
+             Ordner, den niemand ansieht. Deshalb steht hier, was da liegt. -->
+        <div class="karte">
+          <div class="feld">
+            <span>Zwischenordner fürs Rendern</span>
+            <p id="renders-hinweis" class="klein">wird geprüft …</p>
+          </div>
+          <div id="renders-liste" class="hakenliste versteckt"></div>
+          <div class="werkzeuge">
+            <button id="renders-pruefen" class="leise">Nachsehen</button>
+            <button id="renders-aufraeumen">Reste löschen</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="statuszeile" class="status"></footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

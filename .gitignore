@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+*.log
+
+# Das native Modul gehört zur installierten Resolve-Version und wird beim
+# Installieren aus der lokalen Resolve-Installation kopiert – nie eingecheckt.
+WorkflowIntegration.node
+
+# Persönliche Testablage
+.tmp/
+
+# Der gebaute selbsttragende Installer – entsteht aus dem Repo, gehört nicht hinein
+dist/

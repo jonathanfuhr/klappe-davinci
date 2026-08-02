@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Resolve liest diese Datei beim Start und legt daraus den Eintrag unter
+  Workspace → Workflow Integrations an. Die <Id> muss mit dem PLUGIN_ID in
+  src/main.js übereinstimmen – WorkflowIntegration.Initialize() prüft sie.
+-->
+<BlackmagicDesign>
+    <Plugin>
+        <Id>de.klappe.davinci</Id>
+        <Name>Klappe</Name>
+        <Version>0.1.0</Version>
+        <Description>Fassungen nach Klappe ausspielen, Kommentare als Marker holen und aus Resolve heraus antworten</Description>
+        <FilePath>main.js</FilePath>
+    </Plugin>
+</BlackmagicDesign>
