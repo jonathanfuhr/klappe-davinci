@@ -257,7 +257,12 @@ Ab Werk lädt das Panel **immer intern** hoch: So geht nichts zum Kunden, bevor
 jemand daraufgeschaut hat. Der Erfolgsdialog sagt das auch – neben dem Link
 steht „Diese Fassung ist intern – der Kunde sieht sie noch nicht."
 
-**Endfassung** und **KI-Kennzeichnung** stehen als Haken im Dialog. Beides
+**Endfassung** und **KI-Kennzeichnung** stehen als Haken im Dialog. Die
+KI-Kennzeichnung wird dabei **vom Video gelesen**: Steht sie an einer früheren
+Fassung schon, ist der Haken beim Öffnen gesetzt und die Arten sind angehakt.
+Das ist nicht nur Bequemlichkeit – sie gilt fürs ganze Video, und wer sie beim
+Hochladen nicht neu setzte, nähme sie sonst versehentlich wieder weg.
+Geschrieben wird nur, wenn sich gegenüber dem Video etwas geändert hat. Beides
 lässt sich beim Anlegen der Upload-Sitzung nicht mitgeben – `isFinal` gehört an
 die Fassung, die erst mit dem letzten Block entsteht, und die KI-Kennzeichnung
 hängt am **Video**. Das Panel trägt sie deshalb nach, sobald die Fassung fertig

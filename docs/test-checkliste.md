@@ -120,6 +120,11 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Ohne den Haken steht `_Vorschau` im Dateinamen – auch in der Zweitablage
 - [ ] **KI-Inhalte kennzeichnen** erscheint nur, wenn die Kennzeichnung im
       Workspace eingeschaltet ist; die Arten stehen zur Auswahl
+- [ ] Ein Video, das die Kennzeichnung schon trägt, zeigt sie beim Öffnen des
+      Dialogs bereits angehakt – samt der gewählten Arten
+- [ ] Ohne Änderung daran wird beim Upload **nichts** geschrieben: Die
+      Kennzeichnung eines Videos verschwindet nicht durch eine neue Fassung
+- [ ] Video im Dialog wechseln → die Haken folgen dem jeweiligen Video
 - [ ] Nach dem Upload trägt das **Video** (nicht nur die Fassung) den Haken und
       die gewählten Arten
 - [ ] Scheitert einer der beiden Nachträge, gilt der Upload trotzdem als

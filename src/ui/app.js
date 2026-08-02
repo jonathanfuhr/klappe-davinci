@@ -106,6 +106,10 @@ const zustand = {
   fassungseinstellungen: { internalEnabled: false, internalByDefault: false },
   /** Katalog der KI-Arten und der globale Schalter des Workspace. */
   kiArten: { enabled: false, kinds: [] },
+  /** Die Videos des gewählten Projekts – sie tragen die KI-Kennzeichnung mit. */
+  videos: [],
+  /** Was am gewählten Video steht; daran misst sich, ob etwas zu schreiben ist. */
+  kiStand: null,
   /** Ist die Overlay-Spur gerade sichtbar? Nach dem Einfügen ja. */
   overlaysSichtbar: true,
   /** Welche Sprache gilt, und woher sie kommt. */
@@ -690,6 +694,9 @@ async function ladeHochladen() {
   if (ki) {
     zustand.kiArten = ki;
     zeichneKiZeile();
+    // Die Arten stehen erst jetzt in der Liste – der Stand des Videos gehört
+    // danach angewandt, sonst gäbe es nichts anzuhaken.
+    uebernehmeKiVomVideo(el('ziel-video').value);
   }
 
   if (projekteGeladen) return;
@@ -725,6 +732,48 @@ function zeichneKiZeile() {
     }
   }
   liste.classList.toggle('versteckt', !el('ziel-ki').checked);
+}
+
+/**
+ * Die KI-Kennzeichnung des gewählten Videos übernehmen.
+ *
+ * Sie hängt am **Video**, nicht an der Fassung – steht sie an einer früheren
+ * Fassung schon, gilt sie auch für diese. Der Haken muss das zeigen, bevor
+ * hochgeladen wird: Sonst sähe es aus, als wäre nichts gekennzeichnet, und wer
+ * ihn nicht neu setzt, nähme die Kennzeichnung beim Hochladen versehentlich
+ * wieder weg.
+ *
+ * Der Stand wird zugleich gemerkt. Wer nichts ändert, schickt später auch
+ * nichts – ein Schreibzugriff, der nichts ändert, kann nur schiefgehen.
+ */
+function uebernehmeKiVomVideo(videoId) {
+  if (!zustand.kiArten.enabled) return;
+
+  const video = (zustand.videos || []).find((eintrag) => eintrag.id === videoId);
+  const anIds = (video?.aiKinds || []).map((art) => art.id);
+  const an = Boolean(video?.aiContent);
+
+  el('ziel-ki').checked = an;
+  for (const haken of el('ki-arten').querySelectorAll('input[type="checkbox"]')) {
+    haken.checked = anIds.includes(haken.value);
+  }
+  el('ki-arten').classList.toggle('versteckt', !an);
+
+  zustand.kiStand = { aiContent: an, aiKindIds: [...anIds].sort() };
+}
+
+/** Weicht die Auswahl vom Stand am Video ab? Nur dann wird geschrieben. */
+function kiGeaendert() {
+  if (!zustand.kiArten.enabled) return false;
+  const jetzt = {
+    aiContent: el('ziel-ki').checked,
+    aiKindIds: [...el('ki-arten').querySelectorAll('input:checked')].map((h) => h.value).sort(),
+  };
+  const vorher = zustand.kiStand || { aiContent: false, aiKindIds: [] };
+  return (
+    jetzt.aiContent !== vorher.aiContent ||
+    jetzt.aiKindIds.join() !== vorher.aiKindIds.join()
+  );
 }
 
 /**
@@ -768,7 +817,9 @@ async function ladeVideosFuerUpload(projectId) {
     feld.appendChild(option('__neu__', `➕ ${t('Neues Video anlegen')}`));
     feld.value = '__neu__';
   } else {
-    await fuelleVideos(el('ziel-video'), projectId, {
+    // Die Videoliste trägt `aiContent` und `aiKinds` schon mit sich – dafür
+    // braucht es keine zweite Anfrage.
+    zustand.videos = await fuelleVideos(el('ziel-video'), projectId, {
       mitNeu: true,
       vorauswahl: zustand.mapping?.videoId,
     });
@@ -780,6 +831,7 @@ async function ladeVideosFuerUpload(projectId) {
 async function ladeFassungenFuerUpload() {
   const videoId = el('ziel-video').value;
   el('neues-video').classList.toggle('versteckt', videoId !== '__neu__');
+  uebernehmeKiVomVideo(videoId);
   await fuelleFassungen(el('ziel-fassung'), videoId, {
     neuText: t('Neue Fassung (Nummer zählt Klappe weiter)'),
   });
@@ -841,9 +893,10 @@ async function ermittleZiel() {
     label: el('ziel-label').value.trim(),
     preset: el('preset').value,
     isFinal: el('ziel-final').checked,
-    // `undefined` heißt „nicht anfassen": Ist die Kennzeichnung im Workspace
-    // abgeschaltet, soll das Plugin das Video nicht stillschweigend ändern.
-    aiContent: zustand.kiArten.enabled ? el('ziel-ki').checked : undefined,
+    // `undefined` heißt „nicht anfassen" – und das gilt in zwei Fällen: wenn
+    // die Kennzeichnung im Workspace abgeschaltet ist, und wenn am Video schon
+    // genau das steht, was hier angehakt ist.
+    aiContent: kiGeaendert() ? el('ziel-ki').checked : undefined,
     aiKindIds: [...el('ki-arten').querySelectorAll('input:checked')].map((h) => h.value),
     archiveDir: el('ziel-ablage-an').checked ? el('ziel-ablage').value.trim() : '',
     wholeTimeline: el('bereich').value === 'ganz',
