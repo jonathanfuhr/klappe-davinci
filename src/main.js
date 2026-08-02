@@ -391,7 +391,7 @@ function registerHandlers() {
   handle('klappe:markers:clear', async (alsoByColor) => {
     const settings = config.read();
     return markers.clear({
-      alsoByColor: Boolean(alsoByColor),
+      alsoByColor: alsoByColor === undefined ? true : Boolean(alsoByColor),
       colorOpen: settings.markerColor,
       colorResolved: settings.markerColorResolved,
     });
@@ -429,7 +429,7 @@ function registerHandlers() {
     const settings = config.read();
     const overlayResult = await overlays.clear({ removeFiles: false });
     const markerResult = await markers.clear({
-      alsoByColor: false,
+      alsoByColor: true,
       colorOpen: settings.markerColor,
       colorResolved: settings.markerColorResolved,
     });

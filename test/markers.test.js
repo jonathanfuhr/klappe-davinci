@@ -158,3 +158,19 @@ describe('Abgleich planen', () => {
     expect(plan.remove).toHaveLength(0);
   });
 });
+
+describe('Aufräumen erkennt die eigenen Marker', () => {
+  const optionen = { versionId: 'v1', colorOpen: 'Pink', colorResolved: 'Rose' };
+  const eigener = markers.buildMarker(markers.groupByFrame([kommentar()])[0], optionen);
+
+  it('erkennt sie an der customData', () => {
+    expect(markers.isOurs({ customData: eigener.customData })).toBe(true);
+  });
+
+  it('erkennt sie nicht an der Farbe allein', () => {
+    // Sonst risse das Aufräumen jede pinke Schnittnotiz mit – deshalb ist die
+    // Farbe nur der Rückfall, und der greift erst, wenn Resolve die Kennung
+    // an **keinem** Marker herausgibt.
+    expect(markers.isOurs({ color: 'Pink', customData: '' })).toBe(false);
+  });
+});

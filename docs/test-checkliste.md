@@ -192,6 +192,10 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       verschoben richtig
 - [ ] Timeline kürzen, dann synchronisieren → Meldung „hinter dem Timeline-Ende"
       statt eines stillen Verlusts
+- [ ] **Aufräumen entfernt die Marker wirklich** – die Meldung nennt sonst,
+      wie viele gefunden und wie viele erkannt wurden
+- [ ] Gibt diese Resolve-Fassung die Kennung nicht zurück, greift der Rückfall
+      über die Farbe und sagt das auch
 - [ ] Projekt auf einem zweiten Rechner öffnen → **Aufräumen** entfernt auch
       die Marker des ersten Rechners
 - [ ] Eigene Schnittnotizen (fremde Marker) bleiben unangetastet

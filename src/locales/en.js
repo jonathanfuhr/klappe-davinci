@@ -108,7 +108,14 @@ module.exports = {
   '{eingefuegt} von {gesamt} Zeichnungen auf der Spur „{spur}"{laenge}.':
     '{eingefuegt} of {gesamt} drawings on track “{spur}”{laenge}.',
   '{anzahl} nicht möglich.': '{anzahl} not possible.',
-  'Spur {spur} · {anzahl} abgelehnt:': 'Track {spur} · {anzahl} rejected:',
+  'Spur {spur} · {anzahl} Hinweis(e):': 'Track {spur} · {anzahl} note(s):',
+  'Die Zeichnungen sind {ist} statt {soll} Frames lang: Die Bilder lagen schon im Bin und tragen die Länge von damals. Einmal „Aufräumen" drücken und neu einfügen – dann werden sie neu importiert.':
+    'The drawings are {ist} instead of {soll} frames long: the images were already in the bin and carry the length from back then. Press “Clean up” once and insert again – then they are imported afresh.',
+  '{gefunden} Marker in der Timeline, {kennung} mit Klappe-Kennung.':
+    '{gefunden} markers in the timeline, {kennung} carrying the Klappe tag.',
+  '{anzahl} über die Farbe erkannt – diese Resolve-Fassung gibt die Kennung nicht zurück.':
+    '{anzahl} recognised by colour – this version of Resolve does not return the tag.',
+  'Nicht löschbar bei Frame: {frames}': 'Could not be deleted at frame: {frames}',
   'In dieser Timeline gibt es keine Klappe-Spur.': 'There is no Klappe track in this timeline.',
   'Spur „{spur}" ist wieder sichtbar.': 'Track “{spur}” is visible again.',
   'Spur „{spur}" ist ausgeblendet – jetzt kann von Hand exportiert werden.':

@@ -194,16 +194,27 @@ async function sync(comments, { versionId, version, renderIn = 0, projectName })
   const { mine } = await ownClipsInTrack(timeline, track.index, overlayRoot);
   if (mine.length > 0) await resolve.deleteClips(timeline, mine);
 
-  /* 4. In den Bin importieren. */
+  /* 4. In den Bin importieren.
+     Vorher die Standbild-Dauer stellen: Ein Standbild bekommt seine Länge beim
+     Import, nicht beim Einfügen. */
+  const wunschdauerVorImport = Math.max(1, Number(settings.overlayFrames) || 1);
+  const project = await resolve.getProject();
+  const stillDauer = await stillDauerSetzen(project, wunschdauerVorImport);
+
   const bin = await ensureBin(mediaPool, settings.overlayBinName);
   if (!bin) {
     throw new Error(t('Der Bin „{bin}" ließ sich nicht anlegen.', { bin: settings.overlayBinName }));
   }
-  const poolItems = await importPngs(
-    mediaPool,
-    bin,
-    files.map((entry) => entry.file),
-  );
+  let poolItems;
+  try {
+    poolItems = await importPngs(
+      mediaPool,
+      bin,
+      files.map((entry) => entry.file),
+    );
+  } finally {
+    await stillDauerZurueck(project, stillDauer);
+  }
 
   /* 5. Einfügen. */
   const wunschdauer = Math.max(1, Number(settings.overlayFrames) || 1);
@@ -292,12 +303,27 @@ async function sync(comments, { versionId, version, renderIn = 0, projectName })
     await resolve.setTrackLock(timeline, track.index, true);
   }
 
+  // Ein Standbild, das schon im Bin liegt, trägt die Länge von damals – die
+  // Einstellung wirkt nur beim Import. Das gehört gesagt, samt dem Weg
+  // heraus, statt dass jemand rätselt, warum die Zahl nicht stimmt.
+  if (inserted.length > 0 && gemesseneDauer > 0 && gemesseneDauer !== wunschdauerVorImport) {
+    failed.push({
+      id: '',
+      reason: t(
+        'Die Zeichnungen sind {ist} statt {soll} Frames lang: Die Bilder lagen schon im Bin und tragen die Länge von damals. Einmal „Aufräumen" drücken und neu einfügen – dann werden sie neu importiert.',
+        { ist: gemesseneDauer, soll: wunschdauerVorImport },
+      ),
+    });
+  }
+
   return {
     track: track.name,
     trackIndex: track.index,
     inserted: inserted.length,
     drawings: drawings.length,
     frames: gemesseneDauer,
+    wunschdauer: wunschdauerVorImport,
+    stillDauerGesetzt: stillDauer ? stillDauer.schluessel : '',
     konvention: konvention === null ? '' : KONVENTIONEN[konvention].name,
     failed,
   };
@@ -323,13 +349,68 @@ const KONVENTIONEN = [
   { name: 'ohne Bildbereich', bereich: () => ({}) },
 ];
 
-/** Wie lang ist der eingefügte Clip wirklich geworden? */
+/**
+ * Wie lang ist der eingefügte Clip wirklich geworden?
+ *
+ * Zwei Wege, weil einer nicht genügt: `GetDuration()` lieferte in der Praxis
+ * nichts Verwertbares, und eine Messung, die 0 zurückgibt, hat mein „probier
+ * die Zählweise aus" stillschweigend jede Länge durchwinken lassen – auch die
+ * fünf Sekunden, die es zu verhindern galt. `GetEnd() - GetStart()` sind zwei
+ * schlichte Ganzzahlen und damit die verlässlichere Auskunft.
+ */
 async function itemDauer(item) {
   try {
-    const wert = Number(await item.GetDuration());
-    return Number.isFinite(wert) && wert > 0 ? wert : 0;
+    const ende = Number(await item.GetEnd());
+    const anfang = Number(await item.GetStart());
+    if (Number.isFinite(ende) && Number.isFinite(anfang) && ende > anfang) return ende - anfang;
   } catch {
-    return 0;
+    /* nächster Weg */
+  }
+  try {
+    const wert = Number(await item.GetDuration());
+    if (Number.isFinite(wert) && wert > 0) return wert;
+  } catch {
+    /* dann eben unbekannt */
+  }
+  return 0;
+}
+
+/**
+ * Die Standbild-Dauer des Projekts vorübergehend auf unsere Länge stellen.
+ *
+ * Ein Standbild bekommt seine Länge beim **Import**, nicht beim Einfügen – der
+ * Bildbereich in `AppendToTimeline` ändert daran nichts. Resolve nennt die
+ * Einstellung in seiner Skript-Doku nicht, und die Schreibweise unterscheidet
+ * sich zwischen den Fassungen; deshalb werden mehrere versucht und der
+ * Rückgabewert entscheidet. Greift keine, bleibt es beim alten Verhalten –
+ * dann steht die tatsächliche Länge im Ergebnis, statt still danebenzuliegen.
+ */
+const STILL_SCHLUESSEL = [
+  'timelineDefaultStillDuration',
+  'defaultStillDuration',
+  'imageSequenceDefaultDuration',
+];
+
+async function stillDauerSetzen(project, frames) {
+  if (!project) return null;
+  for (const schluessel of STILL_SCHLUESSEL) {
+    try {
+      const vorher = await project.GetSetting(schluessel);
+      if (vorher === undefined || vorher === null || vorher === '') continue;
+      if (await project.SetSetting(schluessel, String(frames))) return { schluessel, vorher };
+    } catch {
+      /* nächster Schlüssel */
+    }
+  }
+  return null;
+}
+
+async function stillDauerZurueck(project, gemerkt) {
+  if (!project || !gemerkt) return;
+  try {
+    await project.SetSetting(gemerkt.schluessel, String(gemerkt.vorher));
+  } catch {
+    /* Die Einstellung ist Kür; ein Fehler hier darf nichts abbrechen. */
   }
 }
 

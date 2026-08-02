@@ -1137,7 +1137,7 @@ async function setzeOverlays() {
       t('Zeichnungen einfügen'),
       [
         kurz,
-        t('Spur {spur} · {anzahl} abgelehnt:', {
+        t('Spur {spur} · {anzahl} Hinweis(e):', {
           spur: ergebnis.trackIndex,
           anzahl: ergebnis.failed.length,
         }),
@@ -1193,14 +1193,34 @@ async function raeumeAuf() {
   status(t('Wird aufgeräumt …'));
   const ergebnis = await aufruf(window.klappe.cleanupAll());
   if (!ergebnis) return;
+  const m = ergebnis.markers;
   status(
     t('{marker} Marker und {clips} Overlay-Clips entfernt{spur}.', {
-      marker: ergebnis.markers.removed,
+      marker: m.removed,
       clips: ergebnis.overlays.removed,
       spur: ergebnis.overlays.trackDeleted ? t(', Spur gelöscht') : '',
     }),
-    'gut',
+    m.removed === 0 && m.gefunden > 0 ? 'fehler' : 'gut',
   );
+
+  // Ein „0 entfernt" ohne Begründung war der Grund, warum ein Fehler hier lange
+  // unentdeckt blieb. Jetzt steht dabei, was gefunden und wie erkannt wurde.
+  if (m.gefunden > 0 && (m.removed === 0 || m.ueberFarbe > 0 || m.misslungen.length > 0)) {
+    zeigeTimelineErgebnis(t('Aufräumen'), [
+      t('{gefunden} Marker in der Timeline, {kennung} mit Klappe-Kennung.', {
+        gefunden: m.gefunden,
+        kennung: m.ueberKennung,
+      }),
+      m.ueberFarbe > 0
+        ? t('{anzahl} über die Farbe erkannt – diese Resolve-Fassung gibt die Kennung nicht zurück.', {
+            anzahl: m.ueberFarbe,
+          })
+        : '',
+      m.misslungen.length > 0
+        ? t('Nicht löschbar bei Frame: {frames}', { frames: m.misslungen.join(', ') })
+        : '',
+    ].filter(Boolean));
+  }
 }
 
 /* ---------------------------------------------------------- Einstellungen */
