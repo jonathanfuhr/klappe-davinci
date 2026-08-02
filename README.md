@@ -66,6 +66,8 @@ hinüberkopieren, oben im Werteblock eintragen, was dort gelten soll,
 Für Windows gibt es das noch nicht – dort braucht `install.ps1` weiterhin den
 Ordner daneben.
 
+### Vorgaben und eigene Einstellungen
+
 Die Vorgaben landen in `~/.klappe-davinci/vorgaben.json`. Sie sind die
 **untere** Schicht: Was jemand später im Panel einstellt (`config.json`)
 gewinnt, der Installer überschreibt also nie eine getroffene Entscheidung. Wer
@@ -142,11 +144,12 @@ Installer). Leer heißt: das erste der Liste.
 > Preset „YouTube - Hausformat" darf nicht als mitgeliefert gelten und damit
 > aus dem Dialog fallen. Was eine neue Resolve-Fassung dazulegt, trägt man in
 > `standardPresetsExtra` nach; bis dahin gilt es als eigenes und ist sichtbar –
-> die harmlosere Richtung. Resolve rendert in einen
-Zwischenordner, das Panel überträgt die Datei per tus (blockweise, nach einem
-Verbindungsabbruch geht es an derselben Stelle weiter) und wartet, bis Klappe
-sie verarbeitet hat. Danach steht „Im Browser öffnen" bereit – die Adresse
-kommt als `webUrl` vom Server, sie wird nicht geraten.
+> die harmlosere Richtung.
+
+Resolve rendert in einen Zwischenordner, das Panel überträgt die Datei per tus
+(blockweise, nach einem Verbindungsabbruch geht es an derselben Stelle weiter)
+und wartet, bis Klappe sie verarbeitet hat. Danach steht „Im Browser öffnen"
+bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
 
 - **Bereich:** ab Werk wie in Resolve – In/Out, wenn gesetzt, sonst die ganze
   Timeline. Der verwendete Bereich wandert in die Zuordnung; er ist der
@@ -155,6 +158,32 @@ kommt als `webUrl` vom Server, sie wird nicht geraten.
   beim Abschluss in einer Transaktion. **Achtung:** Ihre Kommentare
   verschwinden mit ihr – sie hängen an Frames eines Ausspielens, das es dann
   nicht mehr gibt. Das Panel fragt vorher nach.
+
+### Zusätzlich lokal ablegen
+
+Im Upload-Dialog gibt es den Haken **Master zusätzlich lokal ablegen** und
+darunter einen Ordner – typischerweise der Projektordner auf dem Medien-Server.
+
+Gerendert wird trotzdem **einmal**, in den Zwischenordner. Von dort geht die
+Datei zwei Wege **gleichzeitig**: hoch nach Klappe und hinüber in die Ablage.
+Nacheinander wäre der Schnittplatz doppelt so lange belegt – ein UHD-Master
+über ein Netzlaufwerk zu kopieren dauert etwa so lange wie das Hochladen.
+
+Am Ende wird die Kopie auf den Namen umbenannt, unter dem Klappe die Fassung
+führt (`260802_Kunde_Teaser_v3_1080p25.mov`) – der Name des Zwischen-Masters
+hat im Projektordner nichts zu suchen. Er steht aber erst fest, wenn die
+Fassung verarbeitet ist; deshalb erst kopieren, dann umbenennen.
+
+Zwei Regeln, weil in diesem Ordner fremde Arbeit liegt: **nichts
+überschreiben** (ein belegter Name bekommt `-2`, `-3`, …) und **kein
+Bruchstück hinterlassen** – bricht die Kopie ab, wird die halbe Datei
+weggeräumt. Eine gescheiterte Kopie lässt den Upload unberührt; sie steht als
+Warnung im Erfolgsdialog.
+
+Der Pfad in den Einstellungen (und im Installer) ist die **Vorgabe**: Steht
+dort einer, ist der Haken im Dialog vorbelegt. Was im Dialog geändert wird,
+gilt für diesen einen Upload und wandert nicht zurück in die Einstellungen.
+
 ### Der Zwischenordner
 
 Resolve rendert erst eine Datei, dann wird sie übertragen. Ein UHD-Master ist
@@ -295,6 +324,7 @@ startet keinen Upload; **Zuordnung lösen** nimmt sie wieder zurück.
 | Feld | Bedeutung |
 | --- | --- |
 | `serverUrl` | Adresse der Klappe-Instanz |
+| `language` | `auto` (Vorgabe), `de` oder `en` |
 | `internalMode` | `immer` (Vorgabe) oder `wahl` |
 | `standardPresetsMode` | `keine` (Vorgabe), `auswahl` oder `alle` – für die **mitgelieferten** Presets |
 | `renderPresetsStandard` | die Auswahl bei `auswahl` |
@@ -307,8 +337,49 @@ startet keinen Upload; **Zuordnung lösen** nimmt sie wieder zurück.
 | `overlayPath` | Ablage der PNGs; leer = `~/.klappe-davinci/overlays` |
 | `mappingPath` | Ablage der Zuordnung; leer = `~/.klappe-davinci` |
 | `renderDir` | Zwischenordner fürs Rendern; leer = Systemtemp |
+| `archiveDir` | Vorgabe für die zusätzliche lokale Ablage; leer = Haken aus |
 
 ---
+
+## Sprache
+
+Das Panel spricht Deutsch und Englisch. Welche Sprache gilt, entscheidet diese
+Kette – die erste Stufe, die eine Antwort hat, gewinnt:
+
+1. **Die Einstellung im Panel**, wenn sie nicht auf *Automatisch* steht.
+2. **Die eigene Wahl im Klappe-Konto** (`UserDto.locale`). Wer sich die Web-App
+   auf Englisch gestellt hat, will das Plugin nicht auf Deutsch.
+3. **Die Vorgabe der Instanz** (`GET /v1/branding` → `defaultLocale`).
+4. **Die Systemsprache des Rechners.**
+5. **Englisch.** Nicht Deutsch: Vor der Kopplung weiß das Plugin nicht, wer
+   davorsitzt, und wer kein Deutsch kann, findet in einer deutschen Oberfläche
+   nicht einmal die Einstellung, um sie umzustellen.
+
+In den Einstellungen steht neben der Auswahl, **woher** die Sprache gerade
+kommt – sonst wäre *Automatisch* eine Black Box.
+
+### Eine Sprache hinzufügen
+
+**Der deutsche Satz ist der Schlüssel** – dasselbe Verfahren wie in der
+Klappe-API (`apps/api/src/i18n/api-messages.ts`). Im Code steht überall ein
+lesbarer Satz, kein Kürzel wie `upload.error.offset`; übersetzt wird erst beim
+Anzeigen. Fehlt ein Eintrag, geht Deutsch hinaus – nie ein leerer Knopf.
+
+1. `src/locales/en.js` kopieren, etwa nach `fr.js`, und übersetzen.
+2. In `src/i18n.js` eine Zeile in `KATALOGE` ergänzen und das Kürzel in
+   `LOCALES` und `LOCALE_NAMES` eintragen.
+3. In `src/ui/index.html` eine `<option>` zur Sprachwahl.
+
+`npm test` prüft dabei mit: Jeder `t()`-Aufruf im Quelltext muss einen Eintrag
+haben, die Platzhalter müssen auf beiden Seiten dieselben sein, und ein Satz,
+den es im Code nicht mehr gibt, darf nicht im Katalog stehen bleiben.
+
+Das feste HTML braucht **keine** Markierungen: Weil der deutsche Satz der
+Schlüssel ist, geht das Panel beim Start einmal durch die Textknoten,
+`placeholder` und `title` und tauscht, was im Katalog steht.
+
+Nicht übersetzt sind die Installer – die laufen einmal beim Einrichten und
+richten sich an den, der das Haus verwaltet.
 
 ## Bekannte Grenzen
 

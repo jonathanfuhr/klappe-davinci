@@ -34,6 +34,14 @@ const DEFAULTS = {
   /** Adresse der Klappe-Instanz, z. B. `https://klappe.example.de`. */
   serverUrl: '',
   /**
+   * Sprache des Panels: `auto`, `de` oder `en`.
+   *
+   * `auto` folgt der Kette aus i18n.js – eigene Wahl im Klappe-Konto, Vorgabe
+   * der Instanz, Systemsprache, sonst Englisch. Wer hier etwas anderes
+   * einträgt, meint es so und wird nicht überstimmt.
+   */
+  language: 'auto',
+  /**
    * Was von den **mitgelieferten** Presets im Upload-Dialog steht:
    * `keine` (Vorgabe), `auswahl` oder `alle`.
    *
@@ -82,6 +90,14 @@ const DEFAULTS = {
    * Arbeitsplatte – auf der Systemplatte wird es sonst schnell eng.
    */
   renderDir: '',
+  /**
+   * Zweitablage: Wohin der gerenderte Master **zusätzlich** kopiert wird –
+   * etwa in den Projektordner auf dem Medien-Server. Leer = keine Kopie.
+   *
+   * Das ist nur die Vorgabe; im Upload-Dialog steht der Pfad noch einmal und
+   * lässt sich für den einzelnen Upload ändern.
+   */
+  archiveDir: '',
   /**
    * Standdauer eines Overlay-Clips in Frames. In Klappe steht die Zeichnung
    * auf genau einem Bild – ein frame-genauer Kommentar meint genau dieses.
@@ -181,6 +197,7 @@ function update(patch) {
     ? clean.standardPresetsMode
     : 'keine';
   clean.internalMode = clean.internalMode === 'wahl' ? 'wahl' : 'immer';
+  clean.language = ['de', 'en'].includes(clean.language) ? clean.language : 'auto';
 
   fs.mkdirSync(HOME_DIR, { recursive: true });
   fs.writeFileSync(CONFIG_FILE, `${JSON.stringify(clean, null, 2)}\n`, { mode: 0o600 });

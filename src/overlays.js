@@ -17,6 +17,7 @@ const path = require('node:path');
 const annotation = require('./annotation.js');
 const config = require('./config.js');
 const frames = require('./frames.js');
+const { t } = require('./i18n.js');
 const resolve = require('./resolve.js');
 
 /** Overlay-Dateien heißen nach ihrer Kommentar-ID – daran erkennen wir sie wieder. */
@@ -154,10 +155,10 @@ async function ownClipsInTrack(timeline, trackIndex, overlayRoot) {
 async function sync(comments, { versionId, version, renderIn = 0, projectName }) {
   const settings = config.read();
   const timeline = await resolve.getTimeline();
-  if (!timeline) throw new Error('In Resolve ist keine Timeline aktiv.');
+  if (!timeline) throw new Error(t('In Resolve ist keine Timeline aktiv.'));
 
   const mediaPool = await resolve.getMediaPool();
-  if (!mediaPool) throw new Error('Der Media Pool ist nicht erreichbar.');
+  if (!mediaPool) throw new Error(t('Der Media Pool ist nicht erreichbar.'));
 
   const timelineStart = Number(await timeline.GetStartFrame()) || 0;
   const timelineEnd = Number(await timeline.GetEndFrame()) || 0;
@@ -179,7 +180,11 @@ async function sync(comments, { versionId, version, renderIn = 0, projectName })
 
   /* 2. Spur bereitstellen und zum Bearbeiten freigeben. */
   const track = await resolve.ensureTopTrack(timeline, settings.overlayTrackName);
-  if (!track) throw new Error(`Die Spur „${settings.overlayTrackName}" ließ sich nicht anlegen.`);
+  if (!track) {
+    throw new Error(
+      t('Die Spur „{spur}" ließ sich nicht anlegen.', { spur: settings.overlayTrackName }),
+    );
+  }
 
   await resolve.setTrackLock(timeline, track.index, false);
   await resolve.setTrackEnable(timeline, track.index, true);
@@ -191,7 +196,9 @@ async function sync(comments, { versionId, version, renderIn = 0, projectName })
 
   /* 4. In den Bin importieren. */
   const bin = await ensureBin(mediaPool, settings.overlayBinName);
-  if (!bin) throw new Error(`Der Bin „${settings.overlayBinName}" ließ sich nicht anlegen.`);
+  if (!bin) {
+    throw new Error(t('Der Bin „{bin}" ließ sich nicht anlegen.', { bin: settings.overlayBinName }));
+  }
   const poolItems = await importPngs(
     mediaPool,
     bin,
@@ -205,7 +212,7 @@ async function sync(comments, { versionId, version, renderIn = 0, projectName })
   for (const entry of files) {
     const poolItem = poolItems.get(entry.file);
     if (!poolItem) {
-      failed.push({ id: entry.comment.id, reason: 'Der Import in den Media Pool schlug fehl.' });
+      failed.push({ id: entry.comment.id, reason: t('Der Import in den Media Pool schlug fehl.') });
       continue;
     }
 
@@ -213,7 +220,11 @@ async function sync(comments, { versionId, version, renderIn = 0, projectName })
     if (recordFrame < timelineStart || recordFrame >= timelineEnd) {
       failed.push({
         id: entry.comment.id,
-        reason: `Frame ${recordFrame} liegt außerhalb der Timeline (${timelineStart}–${timelineEnd}).`,
+        reason: t('Frame {frame} liegt außerhalb der Timeline ({von}–{bis}).', {
+          frame: recordFrame,
+          von: timelineStart,
+          bis: timelineEnd,
+        }),
       });
       continue;
     }
@@ -352,7 +363,7 @@ async function fuegeClipEin(mediaPool, timeline, auftrag, gelernt) {
     }
 
     if (items.length === 0) {
-      gruende.push(`${KONVENTIONEN[index].name}: nichts eingefügt`);
+      gruende.push(t('{variante}: nichts eingefügt', { variante: KONVENTIONEN[index].name }));
       continue;
     }
 
@@ -365,7 +376,13 @@ async function fuegeClipEin(mediaPool, timeline, auftrag, gelernt) {
       return { items, konvention: index, dauer, reason: '' };
     }
 
-    gruende.push(`${KONVENTIONEN[index].name}: ergab ${dauer} statt ${auftrag.dauer} Frames`);
+    gruende.push(
+      t('{variante}: ergab {ist} statt {soll} Frames', {
+        variante: KONVENTIONEN[index].name,
+        ist: dauer,
+        soll: auftrag.dauer,
+      }),
+    );
     if (!notnagel) notnagel = { index, info };
     await resolve.deleteClips(timeline, items);
   }
@@ -401,7 +418,7 @@ async function fuegeClipEin(mediaPool, timeline, auftrag, gelernt) {
 async function setVisible(visible) {
   const settings = config.read();
   const timeline = await resolve.getTimeline();
-  if (!timeline) throw new Error('In Resolve ist keine Timeline aktiv.');
+  if (!timeline) throw new Error(t('In Resolve ist keine Timeline aktiv.'));
 
   const track = await resolve.findTrack(timeline, settings.overlayTrackName);
   if (!track) return { track: '', visible: null, previous: null, found: false };
@@ -441,7 +458,7 @@ async function clipFrames(poolItem) {
 async function clear({ removeFiles = false } = {}) {
   const settings = config.read();
   const timeline = await resolve.getTimeline();
-  if (!timeline) throw new Error('In Resolve ist keine Timeline aktiv.');
+  if (!timeline) throw new Error(t('In Resolve ist keine Timeline aktiv.'));
 
   const track = await resolve.findTrack(timeline, settings.overlayTrackName);
   if (!track) return { removed: 0, trackDeleted: false, binDeleted: false };

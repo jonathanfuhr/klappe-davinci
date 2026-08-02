@@ -102,6 +102,23 @@
             <select id="preset"></select>
           </label>
 
+          <label class="haken">
+            <input id="ziel-ablage-an" type="checkbox" />
+            <span>Master zusätzlich lokal ablegen</span>
+          </label>
+
+          <div id="ziel-ablage-zeile" class="feld versteckt">
+            <span class="pfadzeile">
+              <input id="ziel-ablage" type="text" placeholder="z. B. der Projektordner auf dem Server" />
+              <button id="ziel-ablage-waehlen" class="leise">Ordner wählen …</button>
+            </span>
+            <span class="klein">
+              Gerendert wird trotzdem nur einmal, in den Zwischenordner. Von dort geht die Datei
+              zwei Wege gleichzeitig: hoch nach Klappe und hierher. Am Ende wird sie auf den Namen
+              umbenannt, unter dem Klappe die Fassung führt.
+            </span>
+          </div>
+
           <label class="feld">
             <span>Bereich</span>
             <select id="bereich">
@@ -161,6 +178,9 @@
         <div id="fortschritt" class="fortschritt versteckt">
           <div class="balken"><div id="balken-fuellung"></div></div>
           <div id="fortschritt-text" class="klein"></div>
+          <!-- Zweitablage läuft gleichzeitig – deshalb eine eigene Zeile und
+               kein Ringen um dieselbe. -->
+          <div id="kopie-text" class="klein"></div>
         </div>
 
         <div id="upload-ergebnis" class="karte versteckt"></div>
@@ -168,6 +188,18 @@
 
       <!-- --------------------------------------------------- Einstellungen -->
       <section id="ansicht-einstellungen" class="ansicht versteckt">
+        <div class="karte">
+          <label class="feld">
+            <span>Sprache</span>
+            <select id="sprache">
+              <option value="auto">Automatisch</option>
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+            </select>
+            <span id="sprache-herkunft" class="klein"></span>
+          </label>
+        </div>
+
         <div class="karte">
           <label class="feld">
             <span>Adresse der Klappe-Instanz</span>
@@ -274,6 +306,13 @@
             <span class="pfadzeile">
               <input id="render-pfad" type="text" placeholder="schnelle Arbeitsplatte" />
               <button data-pfad="renderDir" class="leise">…</button>
+            </span>
+          </label>
+          <label class="feld">
+            <span>Zweitablage – Vorgabe im Upload-Dialog (leer = keine Kopie)</span>
+            <span class="pfadzeile">
+              <input id="ablage-pfad" type="text" placeholder="z. B. der Projektordner auf dem Server" />
+              <button data-pfad="archiveDir" class="leise">…</button>
             </span>
           </label>
           <div class="werkzeuge">

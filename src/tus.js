@@ -16,6 +16,7 @@
 const fs = require('node:fs');
 
 const api = require('./api.js');
+const { t } = require('./i18n.js');
 
 /** 16 MB je Block – groß genug für Durchsatz, klein genug für zügiges Resume. */
 const CHUNK_BYTES = 16 * 1024 * 1024;
@@ -50,7 +51,9 @@ async function createVersionSession(videoId, meta) {
 
   if (response.status === 409) {
     throw new api.KlappeError(
-      `Die Fassungsnummer ${meta.versionNumber} ist schon vergeben. Zum Überschreiben „Fassung ersetzen" wählen.`,
+      t('Die Fassungsnummer {nummer} ist schon vergeben. Zum Überschreiben „Fassung ersetzen" wählen.', {
+        nummer: meta.versionNumber,
+      }),
       { status: 409, code: 'nummer-vergeben' },
     );
   }
@@ -59,14 +62,14 @@ async function createVersionSession(videoId, meta) {
     // sagt genau, welche Angabe nicht passt (etwa `replace` ohne Nummer).
     const detail = response.data?.message;
     throw new api.KlappeError(
-      Array.isArray(detail) ? detail.join(', ') : detail || 'Der Server hat den Upload abgelehnt.',
+      Array.isArray(detail) ? detail.join(', ') : detail || t('Der Server hat den Upload abgelehnt.'),
       { status: 400, code: 'abgelehnt' },
     );
   }
 
   const session = response.data || {};
   const location = session.location || response.headers.location;
-  if (!location) throw new api.KlappeError('Der Server hat keine Upload-Adresse genannt.');
+  if (!location) throw new api.KlappeError(t('Der Server hat keine Upload-Adresse genannt.'));
 
   return { id: session.id, location, session };
 }
@@ -79,7 +82,7 @@ async function currentOffset(location) {
   });
   if (response.status === 404) {
     throw new api.KlappeError(
-      'Die Upload-Sitzung gibt es nicht mehr – sie wurde abgebrochen oder ist abgelaufen.',
+      t('Die Upload-Sitzung gibt es nicht mehr – sie wurde abgebrochen oder ist abgelaufen.'),
       { status: 404, code: 'sitzung-weg' },
     );
   }
@@ -137,7 +140,7 @@ async function uploadFile({ location, filePath, sizeBytes, onProgress, signal })
 
   while (offset < sizeBytes) {
     if (signal && signal.aborted) {
-      throw new api.KlappeError('Der Upload wurde abgebrochen.', { code: 'abgebrochen' });
+      throw new api.KlappeError(t('Der Upload wurde abgebrochen.'), { code: 'abgebrochen' });
     }
 
     const length = Math.min(CHUNK_BYTES, sizeBytes - offset);

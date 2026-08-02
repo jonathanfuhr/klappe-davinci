@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const api = require('./api.js');
+const { t } = require('./i18n.js');
 
 /**
  * Wird von main.js eingehängt: eine Funktion, die Striche im Renderer zeichnet
@@ -83,7 +84,9 @@ async function fetchFromServer(commentId, pngPath, width) {
 
   if (response.status === 304 && existing) return { path: pngPath, source: 'zwischenspeicher' };
   if (response.status === 404) {
-    throw new api.KlappeError('Zu diesem Kommentar gibt es keine Zeichnung mehr.', { status: 404 });
+    throw new api.KlappeError(t('Zu diesem Kommentar gibt es keine Zeichnung mehr.'), {
+      status: 404,
+    });
   }
 
   fs.mkdirSync(path.dirname(pngPath), { recursive: true });
@@ -98,12 +101,12 @@ async function fetchFromServer(commentId, pngPath, width) {
 /** Zeichnet die Striche selbst und schreibt das PNG. */
 async function renderLocally(annotation, pngPath, { width, height }) {
   if (!rasterizer) {
-    throw new Error('Zum Zeichnen fehlt das Panel-Fenster.');
+    throw new Error(t('Zum Zeichnen fehlt das Panel-Fenster.'));
   }
 
   const dataUrl = await rasterizer({ strokes: annotation.strokes, width, height });
   if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) {
-    throw new Error('Der Rasterizer hat kein PNG geliefert.');
+    throw new Error(t('Der Rasterizer hat kein PNG geliefert.'));
   }
 
   fs.mkdirSync(path.dirname(pngPath), { recursive: true });
@@ -137,7 +140,10 @@ async function ensurePng(comment, pngPath, media, { width = 1920 } = {}) {
       return await renderLocally(comment.annotation, pngPath, size);
     } catch (localError) {
       throw new api.KlappeError(
-        `Die Zeichnung ließ sich nicht beschaffen. Server: ${serverError.message} – eigener Rasterizer: ${localError.message}`,
+        t('Die Zeichnung ließ sich nicht beschaffen. Server: {server} – eigener Rasterizer: {lokal}', {
+          server: serverError.message,
+          lokal: localError.message,
+        }),
       );
     }
   }

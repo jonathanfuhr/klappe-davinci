@@ -7,6 +7,74 @@
 
 const el = (id) => document.getElementById(id);
 
+/* -------------------------------------------------------------- Sprache */
+
+/**
+ * Mehrsprachigkeit im Panel.
+ *
+ * Wie im Hauptprozess ist **der deutsche Satz der Schlüssel** – im Code steht
+ * ein lesbarer Satz, kein Kürzel. Den Katalog schickt der Hauptprozess mit dem
+ * Zustand herüber; der Renderer kann nicht `require`n.
+ */
+let katalog = {};
+
+function t(deutsch, werte) {
+  const text = katalog[deutsch] || deutsch;
+  if (!werte) return text;
+  return text.replace(/\{(\w+)\}/g, (treffer, name) =>
+    Object.prototype.hasOwnProperty.call(werte, name) ? String(werte[name]) : treffer,
+  );
+}
+
+/**
+ * Das feste HTML übersetzen.
+ *
+ * Weil der deutsche Satz der Schlüssel ist, braucht keine einzige Stelle im
+ * HTML ein `data-i18n`: Was im Katalog steht, wird ersetzt, alles andere
+ * bleibt. Ein `<option>`-Text, ein `placeholder` und ein `title` gehören
+ * genauso dazu wie der sichtbare Text – sonst bliebe die Hälfte deutsch.
+ *
+ * Übersetzt wird gegen das **Original**, das beim ersten Lauf gemerkt wird:
+ * Sonst wäre nach einem Sprachwechsel der englische Text der Schlüssel, und
+ * der steht im Katalog nicht.
+ */
+const originale = new WeakMap();
+
+function merkeUndUebersetze(knoten, feld, wert) {
+  if (!originale.has(knoten)) originale.set(knoten, {});
+  const merker = originale.get(knoten);
+  if (merker[feld] === undefined) merker[feld] = wert;
+  const uebersetzt = t(merker[feld]);
+  if (uebersetzt !== wert) return uebersetzt;
+  return null;
+}
+
+function uebersetzeDokument() {
+  const lauf = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const texte = [];
+  while (lauf.nextNode()) texte.push(lauf.currentNode);
+
+  for (const knoten of texte) {
+    const roh = knoten.nodeValue;
+    if (!roh || !roh.trim()) continue;
+    // Der Abstand um den Text herum bleibt, wie er ist – er kommt aus der
+    // Einrückung im HTML und hat mit Sprache nichts zu tun.
+    const [, vorne, kern, hinten] = roh.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    const neu = merkeUndUebersetze(knoten, 'text', kern);
+    if (neu !== null) knoten.nodeValue = `${vorne}${neu}${hinten}`;
+  }
+
+  for (const element of document.querySelectorAll('[placeholder]')) {
+    const neu = merkeUndUebersetze(element, 'placeholder', element.placeholder);
+    if (neu !== null) element.placeholder = neu;
+  }
+
+  for (const element of document.querySelectorAll('[title]')) {
+    const neu = merkeUndUebersetze(element, 'title', element.title);
+    if (neu !== null) element.title = neu;
+  }
+}
+
 /** Resolves Markerfarben, in Resolves Reihenfolge. */
 const MARKER_FARBEN = [
   'Blue',
@@ -38,6 +106,9 @@ const zustand = {
   fassungseinstellungen: { internalEnabled: false, internalByDefault: false },
   /** Ist die Overlay-Spur gerade sichtbar? Nach dem Einfügen ja. */
   overlaysSichtbar: true,
+  /** Welche Sprache gilt, und woher sie kommt. */
+  sprache: null,
+  dokumentUebersetzt: false,
   /** Presets aus Resolve, schon in Standard und Eigene geteilt. */
   presets: { alle: [], standard: [], eigene: [], sichtbare: [] },
   laueftUpload: false,
@@ -61,7 +132,7 @@ async function aufruf(versprechen, { still = false } = {}) {
     const antwort = await versprechen;
     if (antwort && antwort.ok) return antwort.data;
 
-    const meldung = antwort?.error || 'Unbekannter Fehler.';
+    const meldung = antwort?.error || t('Unbekannter Fehler.');
     if (!still) status(meldung, 'fehler');
     if (antwort?.status === 401) {
       zustand.hasToken = false;
@@ -93,7 +164,9 @@ function zeitpunkt(iso) {
   if (!iso) return '';
   const datum = new Date(iso);
   if (Number.isNaN(datum.getTime())) return '';
-  return datum.toLocaleString('de-DE', {
+  // Datum und Uhrzeit in der Sprache, die gerade gilt – ein deutsches Datum
+  // in einer englischen Oberfläche liest sich falsch.
+  return datum.toLocaleString(zustand.sprache?.locale || 'de', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -130,7 +203,7 @@ async function fuelleVideos(feld, projectId, { mitNeu = false, vorauswahl = '' }
   const videos = projectId ? await aufruf(window.klappe.videos(projectId), { still: true }) : [];
 
   feld.textContent = '';
-  if (mitNeu) feld.appendChild(option('__neu__', '➕ Neues Video anlegen'));
+  if (mitNeu) feld.appendChild(option('__neu__', `➕ ${t('Neues Video anlegen')}`));
   for (const video of videos || []) {
     feld.appendChild(option(video.id, video.name, { name: video.name }));
   }
@@ -152,9 +225,9 @@ async function fuelleFassungen(feld, videoId, { neuText = '', vorauswahl = '' } 
     feld.appendChild(
       option(
         String(fassung.versionNumber),
-        `Fassung ${fassung.versionNumber}${fassung.label ? ` – ${fassung.label}` : ''}${
-          fassung.internal ? ' (intern)' : ''
-        }`,
+        `${t('Fassung {nummer}', { nummer: fassung.versionNumber })}${
+          fassung.label ? ` – ${fassung.label}` : ''
+        }${fassung.internal ? ` (${t('intern')})` : ''}`,
         { id: fassung.id },
       ),
     );
@@ -173,22 +246,24 @@ function zeichneKopf() {
 
   if (!zustand.settings?.serverUrl) {
     ampel.className = 'ampel';
-    konto.textContent = 'keine Adresse eingetragen';
+    konto.textContent = t('keine Adresse eingetragen');
     return;
   }
   if (!zustand.hasToken) {
     ampel.className = 'ampel';
-    konto.textContent = 'nicht verbunden';
+    konto.textContent = t('nicht verbunden');
     return;
   }
   if (!zustand.user) {
     ampel.className = 'ampel gestoert';
-    konto.textContent = 'Verbindung gestört';
+    konto.textContent = t('Verbindung gestört');
     return;
   }
 
   ampel.className = 'ampel verbunden';
-  konto.textContent = `${zustand.user.name} · ${zustand.user.role === 'GUEST' ? 'Gast' : 'Team'}`;
+  konto.textContent = `${zustand.user.name} · ${
+    zustand.user.role === 'GUEST' ? t('Gast') : t('Team')
+  }`;
 }
 
 function zeichneKontext() {
@@ -197,17 +272,17 @@ function zeichneKontext() {
   const context = zustand.context;
 
   if (!context || !context.ok) {
-    ziel.textContent = context?.reason || 'Resolve ist nicht erreichbar.';
+    ziel.textContent = context?.reason || t('Resolve ist nicht erreichbar.');
     return;
   }
 
   const teile = [];
   if (Number.isFinite(context.markIn) && Number.isFinite(context.markOut)) {
-    teile.push(`In/Out gesetzt (${context.markIn}–${context.markOut})`);
+    teile.push(t('In/Out gesetzt ({von}–{bis})', { von: context.markIn, bis: context.markOut }));
   } else {
-    teile.push('ganze Timeline');
+    teile.push(t('ganze Timeline'));
   }
-  if (context.frameRate) teile.push(`${context.frameRate} fps`);
+  if (context.frameRate) teile.push(t('{rate} fps', { rate: context.frameRate }));
 
   ziel.appendChild(textKnoten('strong', '', `${context.projectName} · ${context.timelineName}`));
   ziel.appendChild(document.createTextNode(` — ${teile.join(' · ')}`));
@@ -218,7 +293,7 @@ function zeichneZuordnung() {
   karte.textContent = '';
 
   if (!zustand.context?.ok) {
-    karte.appendChild(textKnoten('p', 'klein', 'Ohne offene Timeline gibt es nichts zuzuordnen.'));
+    karte.appendChild(textKnoten('p', 'klein', t('Ohne offene Timeline gibt es nichts zuzuordnen.')));
     return;
   }
 
@@ -229,10 +304,12 @@ function zeichneZuordnung() {
       textKnoten(
         'p',
         'klein',
-        'Diese Timeline ist noch keiner Fassung zugeordnet. Nach dem Hochladen aus dem Panel steht sie hier von selbst – wer von Hand exportiert und im Browser hochgeladen hat, verknüpft sie hier.',
+        t(
+          'Diese Timeline ist noch keiner Fassung zugeordnet. Nach dem Hochladen aus dem Panel steht sie hier von selbst – wer von Hand exportiert und im Browser hochgeladen hat, verknüpft sie hier.',
+        ),
       ),
     );
-    const zuordnen = textKnoten('button', 'wichtig', 'Fassung zuordnen …');
+    const zuordnen = textKnoten('button', 'wichtig', t('Fassung zuordnen …'));
     zuordnen.addEventListener('click', () => oeffneZuordnen());
     knoepfe.appendChild(zuordnen);
     karte.appendChild(knoepfe);
@@ -241,28 +318,34 @@ function zeichneZuordnung() {
 
   const eintrag = zustand.mapping;
   const zeile = textKnoten('div', '');
-  zeile.appendChild(textKnoten('strong', '', eintrag.videoName || 'Video'));
+  zeile.appendChild(textKnoten('strong', '', eintrag.videoName || t('Video')));
   zeile.appendChild(
     document.createTextNode(
-      ` · Fassung ${eintrag.versionNumber ?? '?'}${
-        eintrag.wholeTimeline ? '' : ` · Render-Anfang Frame ${eintrag.renderIn}`
+      ` · ${t('Fassung {nummer}', { nummer: eintrag.versionNumber ?? '?' })}${
+        eintrag.wholeTimeline
+          ? ''
+          : ` · ${t('Render-Anfang Frame {frame}', { frame: eintrag.renderIn })}`
       }`,
     ),
   );
   karte.appendChild(zeile);
   karte.appendChild(
-    textKnoten('p', 'klein', `zuletzt am ${zeitpunkt(eintrag.updatedAt) || 'unbekannt'}`),
+    textKnoten(
+      'p',
+      'klein',
+      t('zuletzt am {zeitpunkt}', { zeitpunkt: zeitpunkt(eintrag.updatedAt) || t('unbekannt') }),
+    ),
   );
 
-  const aendern = textKnoten('button', '', 'Ändern …');
+  const aendern = textKnoten('button', '', t('Ändern …'));
   aendern.addEventListener('click', () => oeffneZuordnen());
 
-  const loesen = textKnoten('button', 'leise', 'Zuordnung lösen');
+  const loesen = textKnoten('button', 'leise', t('Zuordnung lösen'));
   loesen.addEventListener('click', async () => {
-    if (!window.confirm('Die Zuordnung dieser Timeline entfernen?')) return;
+    if (!window.confirm(t('Die Zuordnung dieser Timeline entfernen?'))) return;
     const weg = await aufruf(window.klappe.mappingRemove(zustand.context.timelineId));
     if (weg !== null) {
-      status('Zuordnung gelöst.', 'gut');
+      status(t('Zuordnung gelöst.'), 'gut');
       await ladeZustand();
     }
   });
@@ -283,7 +366,10 @@ function zeichneKommentare() {
   liste.textContent = '';
 
   const sichtbar = zustand.kommentare.filter(passtZumFilter);
-  el('kommentar-zahl').textContent = `${zustand.zahlen.open} offen · ${zustand.zahlen.total} gesamt`;
+  el('kommentar-zahl').textContent = t('{offen} offen · {gesamt} gesamt', {
+    offen: zustand.zahlen.open,
+    gesamt: zustand.zahlen.total,
+  });
 
   if (sichtbar.length === 0) {
     liste.appendChild(
@@ -291,8 +377,8 @@ function zeichneKommentare() {
         'li',
         'klein',
         zustand.mapping?.versionId
-          ? 'Keine Kommentare in dieser Auswahl.'
-          : 'Erst eine Fassung zuordnen, dann stehen die Kommentare hier.',
+          ? t('Keine Kommentare in dieser Auswahl.')
+          : t('Erst eine Fassung zuordnen, dann stehen die Kommentare hier.'),
       ),
     );
     return;
@@ -305,18 +391,22 @@ function zeichneEinenKommentar(kommentar) {
   const eintrag = textKnoten('li', `kommentar${kommentar.resolvedAt ? ' erledigt' : ''}`);
 
   const kopf = textKnoten('div', 'kommentar-kopf');
-  kopf.appendChild(textKnoten('span', 'autor', kommentar.author?.name || 'Unbekannt'));
+  kopf.appendChild(textKnoten('span', 'autor', kommentar.author?.name || t('Unbekannt')));
 
   if (Number.isFinite(kommentar.frame)) {
-    const sprung = textKnoten('button', 'tc', kommentar.timecode || `Frame ${kommentar.frame}`);
-    sprung.title = 'Playhead auf diese Stelle setzen';
+    const sprung = textKnoten(
+      'button',
+      'tc',
+      kommentar.timecode || t('Frame {frame}', { frame: kommentar.frame }),
+    );
+    sprung.title = t('Playhead auf diese Stelle setzen');
     sprung.addEventListener('click', async () => {
       const ergebnis = await aufruf(window.klappe.seek(kommentar.frame));
-      if (ergebnis) status(`Playhead auf ${ergebnis.timecode}`, 'gut');
+      if (ergebnis) status(t('Playhead auf {timecode}', { timecode: ergebnis.timecode }), 'gut');
     });
     kopf.appendChild(sprung);
   } else {
-    kopf.appendChild(textKnoten('span', 'klein', 'allgemein'));
+    kopf.appendChild(textKnoten('span', 'klein', t('allgemein')));
   }
 
   kopf.appendChild(textKnoten('span', 'zeit', zeitpunkt(kommentar.createdAt)));
@@ -325,14 +415,14 @@ function zeichneEinenKommentar(kommentar) {
   eintrag.appendChild(textKnoten('div', 'rumpf', kommentar.body || ''));
 
   if (kommentar.annotation?.strokes?.length) {
-    eintrag.appendChild(textKnoten('div', 'zeichnung', '✎ mit Zeichnung'));
+    eintrag.appendChild(textKnoten('div', 'zeichnung', t('✎ mit Zeichnung')));
   }
 
   if (kommentar.replies?.length) {
     const antworten = textKnoten('div', 'antworten');
     for (const antwort of kommentar.replies) {
       const zeile = textKnoten('div', 'antwort');
-      zeile.appendChild(textKnoten('span', 'autor', `${antwort.author?.name || 'Unbekannt'}: `));
+      zeile.appendChild(textKnoten('span', 'autor', `${antwort.author?.name || t('Unbekannt')}: `));
       zeile.appendChild(document.createTextNode(antwort.body || ''));
       antworten.appendChild(zeile);
     }
@@ -346,11 +436,11 @@ function zeichneEinenKommentar(kommentar) {
 function zeichneAntwortfeld(kommentar) {
   const feld = textKnoten('div', 'antwortfeld');
   const eingabe = document.createElement('textarea');
-  eingabe.placeholder = 'Antworten …';
+  eingabe.placeholder = t('Antworten …');
   feld.appendChild(eingabe);
 
   const knoepfe = textKnoten('div', 'werkzeuge');
-  const senden = textKnoten('button', '', 'Antworten');
+  const senden = textKnoten('button', '', t('Antworten'));
   senden.addEventListener('click', async () => {
     const text = eingabe.value.trim();
     if (!text) return;
@@ -359,7 +449,7 @@ function zeichneAntwortfeld(kommentar) {
     senden.disabled = false;
     if (antwort) {
       eingabe.value = '';
-      status('Antwort ist in Klappe.', 'gut');
+      status(t('Antwort ist in Klappe.'), 'gut');
       await ladeKommentare();
     }
   });
@@ -367,7 +457,7 @@ function zeichneAntwortfeld(kommentar) {
   const erledigt = textKnoten(
     'button',
     'leise',
-    kommentar.resolvedAt ? 'Wieder öffnen' : 'Erledigt',
+    kommentar.resolvedAt ? t('Wieder öffnen') : t('Erledigt'),
   );
   erledigt.addEventListener('click', async () => {
     erledigt.disabled = true;
@@ -393,16 +483,16 @@ function zeichneAntwortfeld(kommentar) {
  */
 async function oeffneZuordnen() {
   if (!zustand.hasToken) {
-    status('Erst verbinden (Einstellungen).', 'fehler');
+    status(t('Erst verbinden (Einstellungen).'), 'fehler');
     return;
   }
   if (!zustand.context?.ok) {
-    status(zustand.context?.reason || 'Resolve ist nicht erreichbar.', 'fehler');
+    status(zustand.context?.reason || t('Resolve ist nicht erreichbar.'), 'fehler');
     return;
   }
 
   el('zuordnen-form').classList.remove('versteckt');
-  status('Ziel wählen und übernehmen.');
+  status(t('Ziel wählen und übernehmen.'));
 
   const vorher = zustand.mapping || {};
   await fuelleProjekte(el('zu-projekt'), vorher.projectId);
@@ -424,7 +514,7 @@ async function uebernehmeZuordnung() {
 
   const fassung = el('zu-fassung').selectedOptions[0];
   if (!fassung || !fassung.dataset.id) {
-    status('Zu diesem Video gibt es noch keine Fassung, die sich zuordnen ließe.', 'fehler');
+    status(t('Zu diesem Video gibt es noch keine Fassung, die sich zuordnen ließe.'), 'fehler');
     return;
   }
 
@@ -452,9 +542,11 @@ async function uebernehmeZuordnung() {
   if (!eintrag) return;
   schliesseZuordnen();
   status(
-    `Zugeordnet: ${eintrag.videoName || 'Video'}, Fassung ${eintrag.versionNumber}${
-      renderIn > 0 ? ` (Render-Anfang Frame ${renderIn})` : ''
-    }.`,
+    t('Zugeordnet: {video}, Fassung {nummer}{bereich}.', {
+      video: eintrag.videoName || t('Video'),
+      nummer: eintrag.versionNumber,
+      bereich: renderIn > 0 ? ` (${t('Render-Anfang Frame {frame}', { frame: renderIn })})` : '',
+    }),
     'gut',
   );
   await ladeZustand();
@@ -464,11 +556,11 @@ async function uebernehmeZuordnung() {
 function renderAnfangAusInOut() {
   const context = zustand.context;
   if (!context?.ok || !Number.isFinite(context.markIn)) {
-    status('In der Timeline ist kein In/Out gesetzt.', 'fehler');
+    status(t('In der Timeline ist kein In/Out gesetzt.'), 'fehler');
     return;
   }
   el('zu-renderin').value = String(context.markIn);
-  status(`Render-Anfang auf Frame ${context.markIn} gesetzt.`);
+  status(t('Render-Anfang auf Frame {frame} gesetzt.', { frame: context.markIn }));
 }
 
 /* --------------------------------------------------------------- Aktionen */
@@ -482,6 +574,18 @@ async function ladeZustand() {
   zustand.mapping = daten.mapping;
   zustand.user = daten.user;
   zustand.hasToken = daten.hasToken;
+
+  // Sprache zuerst: Alles, was gleich gezeichnet wird, soll schon in der
+  // richtigen Sprache entstehen.
+  if (daten.sprache) {
+    const gewechselt = zustand.sprache?.locale !== daten.sprache.locale;
+    zustand.sprache = daten.sprache;
+    katalog = daten.sprache.katalog || {};
+    if (gewechselt || !zustand.dokumentUebersetzt) {
+      uebersetzeDokument();
+      zustand.dokumentUebersetzt = true;
+    }
+  }
 
   zeichneKopf();
   zeichneKontext();
@@ -537,7 +641,7 @@ async function ladePresets() {
 
 async function ladeHochladen() {
   if (!zustand.hasToken) {
-    status('Erst verbinden (Einstellungen).', 'fehler');
+    status(t('Erst verbinden (Einstellungen).'), 'fehler');
     return;
   }
 
@@ -552,6 +656,17 @@ async function ladeHochladen() {
     if (vorher && [...feld.options].some((eintrag) => eintrag.value === vorher)) {
       feld.value = vorher;
     }
+  }
+
+  // Der Ablagepfad ist eine **Vorgabe** aus den Einstellungen: Er steht hier
+  // vorbelegt, lässt sich für diesen einen Upload ändern und wandert dabei
+  // nicht zurück in die Einstellungen. Ist im Haus einer hinterlegt, ist der
+  // Haken vorbelegt – wer ihn eingetragen hat, will ihn benutzen.
+  if (!el('ziel-ablage').dataset.beruehrt) {
+    const vorgabe = zustand.settings?.archiveDir || '';
+    el('ziel-ablage').value = vorgabe;
+    el('ziel-ablage-an').checked = Boolean(vorgabe);
+    zeigeAblageZeile();
   }
 
   const einstellungen = await aufruf(window.klappe.versionSettings(), { still: true });
@@ -580,14 +695,21 @@ function zeichneInternZeile(einstellungen) {
   hinweis.classList.toggle('versteckt', einstellungen.zeigeHaken);
 
   if (einstellungen.immerIntern) {
-    hinweis.textContent =
-      'Diese Fassung wird intern hochgeladen. Der Kunde sieht sie erst, wenn sie jemand aus dem Team freigibt.';
+    hinweis.textContent = t(
+      'Diese Fassung wird intern hochgeladen. Der Kunde sieht sie erst, wenn sie jemand aus dem Team freigibt.',
+    );
   } else if (!einstellungen.internalEnabled) {
-    hinweis.textContent =
-      'Diese Instanz fährt keine interne Runde – die Fassung ist sofort für alle sichtbar.';
+    hinweis.textContent = t(
+      'Diese Instanz fährt keine interne Runde – die Fassung ist sofort für alle sichtbar.',
+    );
   } else {
     hinweis.textContent = '';
   }
+}
+
+/** Die Pfadzeile nur zeigen, wenn der Haken gesetzt ist. */
+function zeigeAblageZeile() {
+  el('ziel-ablage-zeile').classList.toggle('versteckt', !el('ziel-ablage-an').checked);
 }
 
 async function ladeVideosFuerUpload(projectId) {
@@ -602,7 +724,7 @@ async function ladeFassungenFuerUpload() {
   const videoId = el('ziel-video').value;
   el('neues-video').classList.toggle('versteckt', videoId !== '__neu__');
   await fuelleFassungen(el('ziel-fassung'), videoId, {
-    neuText: 'Neue Fassung (Nummer zählt Klappe weiter)',
+    neuText: t('Neue Fassung (Nummer zählt Klappe weiter)'),
   });
   zeigeErsetzenWarnung();
 }
@@ -621,7 +743,7 @@ async function ermittleZiel() {
   if (videoId === '__neu__') {
     const name = el('neues-video-name').value.trim();
     if (!name) {
-      status('Der Name des neuen Videos fehlt.', 'fehler');
+      status(t('Der Name des neuen Videos fehlt.'), 'fehler');
       return null;
     }
     const video = await aufruf(window.klappe.createVideo(projectId, name));
@@ -644,6 +766,7 @@ async function ermittleZiel() {
     internal: zustand.fassungseinstellungen.internalEnabled && el('ziel-intern').checked,
     label: el('ziel-label').value.trim(),
     preset: el('preset').value,
+    archiveDir: el('ziel-ablage-an').checked ? el('ziel-ablage').value.trim() : '',
     wholeTimeline: el('bereich').value === 'ganz',
   };
 }
@@ -653,15 +776,19 @@ async function starteUpload() {
   const ziel = await ermittleZiel();
   if (!ziel) return;
   if (!ziel.preset) {
-    status('Es ist kein Render-Preset gewählt.', 'fehler');
+    status(t('Es ist kein Render-Preset gewählt.'), 'fehler');
+    return;
+  }
+  if (el('ziel-ablage-an').checked && !ziel.archiveDir) {
+    status(t('Für die lokale Ablage fehlt der Ordner.'), 'fehler');
     return;
   }
 
   if (ziel.replace) {
     const sicher = window.confirm(
-      `Fassung ${ziel.versionNumber} wirklich ersetzen?\n\n` +
-        'Die Kommentare dieser Fassung verschwinden mit ihr – sie hängen an Frames ' +
-        'eines Ausspielens, das es dann nicht mehr gibt.',
+      `${t('Fassung {nummer} wirklich ersetzen?', { nummer: ziel.versionNumber })}\n\n${t(
+        'Die Kommentare dieser Fassung verschwinden mit ihr – sie hängen an Frames eines Ausspielens, das es dann nicht mehr gibt.',
+      )}`,
     );
     if (!sicher) return;
   }
@@ -670,6 +797,7 @@ async function starteUpload() {
   el('hochladen-start').disabled = true;
   el('hochladen-abbruch').classList.remove('versteckt');
   el('fortschritt').classList.remove('versteckt');
+  el('kopie-text').textContent = '';
   el('upload-ergebnis').classList.add('versteckt');
   status('');
 
@@ -694,9 +822,10 @@ function zeigeUploadErgebnis(ergebnis) {
     textKnoten(
       'div',
       '',
-      `Fassung ${fassung.versionNumber} ist da (${
-        fassung.status === 'READY' ? 'fertig verarbeitet' : fassung.status
-      }).`,
+      t('Fassung {nummer} ist da ({stand}).', {
+        nummer: fassung.versionNumber,
+        stand: fassung.status === 'READY' ? t('fertig verarbeitet') : fassung.status,
+      }),
     ),
   );
 
@@ -708,33 +837,48 @@ function zeigeUploadErgebnis(ergebnis) {
     const warnung = textKnoten(
       'div',
       'warnung',
-      'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Bitte reviewen und freigeben, damit er sie bekommt.',
+      t(
+        'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Bitte reviewen und freigeben, damit er sie bekommt.',
+      ),
     );
     karte.appendChild(warnung);
+  }
+
+  if (ergebnis.ablage) {
+    karte.appendChild(
+      textKnoten(
+        'div',
+        ergebnis.ablage.ok ? 'klein' : 'warnung',
+        ergebnis.ablage.ok
+          ? t('Zweitablage: {pfad}', { pfad: ergebnis.ablage.path })
+          : t('Die Zweitablage ist fehlgeschlagen: {grund}', { grund: ergebnis.ablage.reason }),
+      ),
+    );
   }
 
   const knoepfe = textKnoten('div', 'werkzeuge');
 
   if (ergebnis.webUrl) {
-    const oeffnen = textKnoten('button', 'wichtig', 'Im Browser öffnen');
+    const oeffnen = textKnoten('button', 'wichtig', t('Im Browser öffnen'));
     oeffnen.addEventListener('click', () => window.klappe.openExternal(ergebnis.webUrl));
     knoepfe.appendChild(oeffnen);
   }
 
   if (fassung.internal) {
-    const freigeben = textKnoten('button', 'wichtig', 'Reviewen und freigeben');
-    freigeben.title = 'Macht die interne Fassung für den Kunden sichtbar';
+    const freigeben = textKnoten('button', 'wichtig', t('Reviewen und freigeben'));
+    freigeben.title = t('Macht die interne Fassung für den Kunden sichtbar');
     freigeben.addEventListener('click', async () => {
       const sicher = window.confirm(
-        `Fassung ${fassung.versionNumber} freigeben?\n\n` +
+        `${t('Fassung {nummer} freigeben?', { nummer: fassung.versionNumber })}\n\n${t(
           'Danach sieht sie jeder, der über einen Freigabe-Link Zugang zum Video hat – auch der Kunde.',
+        )}`,
       );
       if (!sicher) return;
       freigeben.disabled = true;
       const ergebnisFreigabe = await aufruf(window.klappe.releaseVersion(fassung.id));
       if (ergebnisFreigabe) {
-        status('Fassung ist freigegeben – der Kunde sieht sie jetzt.', 'gut');
-        freigeben.textContent = 'Freigegeben';
+        status(t('Fassung ist freigegeben – der Kunde sieht sie jetzt.'), 'gut');
+        freigeben.textContent = t('Freigegeben');
         karte.querySelector('.warnung')?.remove();
       } else {
         freigeben.disabled = false;
@@ -743,7 +887,7 @@ function zeigeUploadErgebnis(ergebnis) {
     knoepfe.appendChild(freigeben);
   }
 
-  const marker = textKnoten('button', '', 'Marker setzen');
+  const marker = textKnoten('button', '', t('Marker setzen'));
   marker.addEventListener('click', () => {
     wechsleAnsicht('kommentare');
     void setzeMarker();
@@ -751,7 +895,7 @@ function zeigeUploadErgebnis(ergebnis) {
   knoepfe.appendChild(marker);
 
   karte.appendChild(knoepfe);
-  status('Upload fertig.', 'gut');
+  status(t('Upload fertig.'), 'gut');
 }
 
 /* ------------------------------------------------------- Marker & Overlays */
@@ -784,40 +928,50 @@ function versteckeTimelineErgebnis() {
 
 async function setzeMarker() {
   if (!zustand.mapping?.versionId) {
-    status('Erst eine Fassung zuordnen.', 'fehler');
+    status(t('Erst eine Fassung zuordnen.'), 'fehler');
     return;
   }
-  status('Marker werden gesetzt …');
+  status(t('Marker werden gesetzt …'));
   versteckeTimelineErgebnis();
   const ergebnis = await aufruf(window.klappe.syncMarkers(zustand.mapping.versionId));
   if (!ergebnis) return;
 
   const teile = [
-    `${ergebnis.added} neu`,
-    `${ergebnis.replaced} geändert`,
-    `${ergebnis.removed} entfernt`,
-    `${ergebnis.unchanged} unverändert`,
+    t('{anzahl} neu', { anzahl: ergebnis.added }),
+    t('{anzahl} geändert', { anzahl: ergebnis.replaced }),
+    t('{anzahl} entfernt', { anzahl: ergebnis.removed }),
+    t('{anzahl} unverändert', { anzahl: ergebnis.unchanged }),
   ];
   if (ergebnis.outOfRange > 0) {
-    teile.push(`${ergebnis.outOfRange} hinter dem Timeline-Ende (nicht gesetzt)`);
+    teile.push(
+      t('{anzahl} hinter dem Timeline-Ende (nicht gesetzt)', { anzahl: ergebnis.outOfRange }),
+    );
   }
-  status(`Marker: ${teile.join(', ')}.`, ergebnis.outOfRange > 0 ? 'fehler' : 'gut');
+  status(t('Marker: {liste}.', { liste: teile.join(', ') }), ergebnis.outOfRange > 0 ? 'fehler' : 'gut');
 }
 
 async function setzeOverlays() {
   if (!zustand.mapping?.versionId) {
-    status('Erst eine Fassung zuordnen.', 'fehler');
+    status(t('Erst eine Fassung zuordnen.'), 'fehler');
     return;
   }
-  status('Zeichnungen werden geholt und eingefügt …');
+  status(t('Zeichnungen werden geholt und eingefügt …'));
   versteckeTimelineErgebnis();
   const ergebnis = await aufruf(window.klappe.syncOverlays(zustand.mapping.versionId));
   if (!ergebnis) return;
 
-  const laenge = ergebnis.frames > 0 ? ` je ${ergebnis.frames} Frame(s)` : '';
-  const kurz = `${ergebnis.inserted} von ${ergebnis.drawings} Zeichnungen auf der Spur „${ergebnis.track}"${laenge}.`;
+  const laenge =
+    ergebnis.frames > 0 ? t(' je {frames} Frame(s)', { frames: ergebnis.frames }) : '';
+  const kurz = t('{eingefuegt} von {gesamt} Zeichnungen auf der Spur „{spur}"{laenge}.', {
+    eingefuegt: ergebnis.inserted,
+    gesamt: ergebnis.drawings,
+    spur: ergebnis.track,
+    laenge,
+  });
   status(
-    ergebnis.failed.length > 0 ? `${kurz} ${ergebnis.failed.length} nicht möglich.` : kurz,
+    ergebnis.failed.length > 0
+      ? `${kurz} ${t('{anzahl} nicht möglich.', { anzahl: ergebnis.failed.length })}`
+      : kurz,
     ergebnis.failed.length > 0 ? 'fehler' : 'gut',
   );
 
@@ -827,8 +981,14 @@ async function setzeOverlays() {
 
   if (ergebnis.failed.length > 0) {
     zeigeTimelineErgebnis(
-      'Zeichnungen einfügen',
-      [kurz, `Spur ${ergebnis.trackIndex} · ${ergebnis.failed.length} abgelehnt:`],
+      t('Zeichnungen einfügen'),
+      [
+        kurz,
+        t('Spur {spur} · {anzahl} abgelehnt:', {
+          spur: ergebnis.trackIndex,
+          anzahl: ergebnis.failed.length,
+        }),
+      ],
       ergebnis.failed,
     );
   }
@@ -836,8 +996,8 @@ async function setzeOverlays() {
 
 function zeichneSichtbarkeitsknopf() {
   el('overlays-sichtbar').textContent = zustand.overlaysSichtbar
-    ? 'Zeichnungen ausblenden'
-    : 'Zeichnungen einblenden';
+    ? t('Zeichnungen ausblenden')
+    : t('Zeichnungen einblenden');
 }
 
 /**
@@ -853,7 +1013,7 @@ async function schalteOverlays() {
   if (!ergebnis) return;
 
   if (!ergebnis.found) {
-    status('In dieser Timeline gibt es keine Klappe-Spur.', 'fehler');
+    status(t('In dieser Timeline gibt es keine Klappe-Spur.'), 'fehler');
     return;
   }
 
@@ -861,26 +1021,31 @@ async function schalteOverlays() {
   zeichneSichtbarkeitsknopf();
   status(
     ergebnis.visible
-      ? `Spur „${ergebnis.track}" ist wieder sichtbar.`
-      : `Spur „${ergebnis.track}" ist ausgeblendet – jetzt kann von Hand exportiert werden.`,
+      ? t('Spur „{spur}" ist wieder sichtbar.', { spur: ergebnis.track })
+      : t('Spur „{spur}" ist ausgeblendet – jetzt kann von Hand exportiert werden.', {
+          spur: ergebnis.track,
+        }),
     'gut',
   );
 }
 
 async function raeumeAuf() {
   const sicher = window.confirm(
-    'Alle Klappe-Marker und Klappe-Overlays aus dieser Timeline entfernen?\n\n' +
+    `${t('Alle Klappe-Marker und Klappe-Overlays aus dieser Timeline entfernen?')}\n\n${t(
       'Fremdes Material auf der Spur bleibt unangetastet.',
+    )}`,
   );
   if (!sicher) return;
 
-  status('Wird aufgeräumt …');
+  status(t('Wird aufgeräumt …'));
   const ergebnis = await aufruf(window.klappe.cleanupAll());
   if (!ergebnis) return;
   status(
-    `${ergebnis.markers.removed} Marker und ${ergebnis.overlays.removed} Overlay-Clips entfernt${
-      ergebnis.overlays.trackDeleted ? ', Spur gelöscht' : ''
-    }.`,
+    t('{marker} Marker und {clips} Overlay-Clips entfernt{spur}.', {
+      marker: ergebnis.markers.removed,
+      clips: ergebnis.overlays.removed,
+      spur: ergebnis.overlays.trackDeleted ? t(', Spur gelöscht') : '',
+    }),
     'gut',
   );
 }
@@ -907,8 +1072,9 @@ async function ladePresetAuswahl(neuEinlesen = false) {
 
   if (standard.length === 0 && eigene.length === 0) {
     liste.textContent = '';
-    hinweis.textContent =
-      'Resolve liefert gerade keine Presets – dafür muss ein Projekt geöffnet sein.';
+    hinweis.textContent = t(
+      'Resolve liefert gerade keine Presets – dafür muss ein Projekt geöffnet sein.',
+    );
     return;
   }
 
@@ -917,19 +1083,22 @@ async function ladePresetAuswahl(neuEinlesen = false) {
 
   const sichtbareStandard =
     modus === 'alle' ? standard.length : modus === 'keine' ? 0 : gewaehlt.size;
-  hinweis.textContent = `${eigene.length} eigene Presets (immer dabei) · ${sichtbareStandard} von ${standard.length} mitgelieferten.`;
+  hinweis.textContent = t(
+    '{eigene} eigene Presets (immer dabei) · {sichtbar} von {gesamt} mitgelieferten.',
+    { eigene: eigene.length, sichtbar: sichtbareStandard, gesamt: standard.length },
+  );
 
   liste.textContent = '';
 
   if (eigene.length > 0) {
-    liste.appendChild(textKnoten('div', 'gruppentitel', 'Eigene Presets (immer dabei)'));
+    liste.appendChild(textKnoten('div', 'gruppentitel', t('Eigene Presets (immer dabei)')));
     for (const name of eigene) {
       liste.appendChild(textKnoten('div', 'festeintrag', `✓ ${name}`));
     }
   }
 
   if (standard.length > 0) {
-    liste.appendChild(textKnoten('div', 'gruppentitel', 'Mitgelieferte Presets von Resolve'));
+    liste.appendChild(textKnoten('div', 'gruppentitel', t('Mitgelieferte Presets von Resolve')));
     for (const name of standard) {
       const zeile = document.createElement('label');
       const haken = document.createElement('input');
@@ -954,7 +1123,7 @@ function zeichnePresetVorgabe() {
   const vorgabe = zustand.settings?.defaultPreset || '';
 
   feld.textContent = '';
-  feld.appendChild(option('', '— das erste der Liste —'));
+  feld.appendChild(option('', `— ${t('das erste der Liste')} —`));
   for (const name of zustand.presets.sichtbare) feld.appendChild(option(name, name));
 
   if (vorgabe && [...feld.options].some((eintrag) => eintrag.value === vorgabe)) {
@@ -962,7 +1131,7 @@ function zeichnePresetVorgabe() {
   } else if (vorgabe) {
     // Das gemerkte Preset gibt es nicht mehr oder es ist gerade ausgeblendet.
     // Das gehört gesagt, nicht stillschweigend auf „erstes" gedreht.
-    feld.appendChild(option(vorgabe, `${vorgabe} (nicht in der Liste)`));
+    feld.appendChild(option(vorgabe, `${vorgabe} (${t('nicht in der Liste')})`));
     feld.value = vorgabe;
   }
 }
@@ -1002,11 +1171,15 @@ async function speicherePresets() {
   await ladeHochladen();
 
   const meldung = {
-    keine: 'Nur eigene Presets im Upload-Dialog.',
-    alle: 'Alle Presets im Upload-Dialog.',
-    auswahl: `${gewaehlt.length} mitgelieferte Presets dazu (eigene sind immer dabei).`,
+    keine: t('Nur eigene Presets im Upload-Dialog.'),
+    alle: t('Alle Presets im Upload-Dialog.'),
+    auswahl: t('{anzahl} mitgelieferte Presets dazu (eigene sind immer dabei).', {
+      anzahl: gewaehlt.length,
+    }),
   };
-  const vorgabe = gespeichert.defaultPreset ? ` Vorgewählt: ${gespeichert.defaultPreset}.` : '';
+  const vorgabe = gespeichert.defaultPreset
+    ? ` ${t('Vorgewählt: {preset}.', { preset: gespeichert.defaultPreset })}`
+    : '';
   status(`${meldung[modus]}${vorgabe}`, 'gut');
 }
 
@@ -1016,8 +1189,23 @@ function fuelleEinstellungen(daten) {
   el('overlay-pfad').value = s.overlayPath;
   el('mapping-pfad').value = s.mappingPath;
   el('render-pfad').value = s.renderDir;
+  el('ablage-pfad').value = s.archiveDir;
   el('overlay-frames').value = s.overlayFrames;
   el('intern-modus').value = s.internalMode;
+  el('sprache').value = s.language;
+
+  // Woher die Sprache kommt, gehört dazu: Sonst ist „Automatisch" eine Black
+  // Box, und niemand weiß, warum das Panel plötzlich Englisch spricht.
+  const herkunft = {
+    einstellung: t('aus dieser Einstellung'),
+    konto: t('aus deinem Klappe-Konto'),
+    instanz: t('aus der Vorgabe der Instanz'),
+    system: t('aus der Systemsprache dieses Rechners'),
+    rueckfall: t('Rückfall, solange nichts bekannt ist'),
+  };
+  el('sprache-herkunft').textContent = daten.sprache
+    ? `${daten.sprache.locale.toUpperCase()} — ${herkunft[daten.sprache.quelle] || ''}`
+    : '';
   el('allgemeine-marker').checked = Boolean(s.markGeneralComments);
   fuelleFarben(el('farbe-offen'), s.markerColor);
   fuelleFarben(el('farbe-erledigt'), s.markerColorResolved);
@@ -1026,12 +1214,19 @@ function fuelleEinstellungen(daten) {
   el('verbinden').classList.toggle('versteckt', daten.hasToken);
 
   el('token-ablage').textContent = daten.hasToken
-    ? `Zugang liegt ${
-        daten.tokenStorage === 'schluesselbund' ? 'im Schlüsselbund' : 'in einer Datei mit engen Rechten'
-      } · Gerätename: ${daten.clientName}`
+    ? t('Zugang liegt {ort} · Gerätename: {name}', {
+        ort:
+          daten.tokenStorage === 'schluesselbund'
+            ? t('im Schlüsselbund')
+            : t('in einer Datei mit engen Rechten'),
+        name: daten.clientName,
+      })
     : '';
 
-  el('pfad-hinweis').textContent = `Zuordnung: ${daten.mappingFile} · Zeichnungen: ${daten.overlayDir}`;
+  el('pfad-hinweis').textContent = t('Zuordnung: {zuordnung} · Zeichnungen: {zeichnungen}', {
+    zuordnung: daten.mappingFile,
+    zeichnungen: daten.overlayDir,
+  });
 }
 
 /** Bytes so schreiben, wie man sie am Schnittplatz liest. */
@@ -1057,20 +1252,26 @@ async function ladeRenderReste() {
   const liste = el('renders-liste');
 
   if (!stand) {
-    hinweis.textContent = 'Der Zwischenordner ließ sich nicht prüfen.';
+    hinweis.textContent = t('Der Zwischenordner ließ sich nicht prüfen.');
     return;
   }
 
   if (stand.anzahl === 0) {
-    hinweis.textContent = `${stand.ordner} — nichts liegen geblieben.`;
+    hinweis.textContent = t('{ordner} — nichts liegen geblieben.', { ordner: stand.ordner });
     liste.classList.add('versteckt');
     liste.textContent = '';
     return;
   }
 
-  hinweis.textContent =
-    `${stand.ordner} — ${stand.anzahl} Datei(en), ${bytes(stand.bytes)}. ` +
-    `Reste älter als ${stand.maxAlterStunden} Stunden verschwinden beim nächsten Upload von selbst.`;
+  hinweis.textContent = t(
+    '{ordner} — {anzahl} Datei(en), {platz}. Reste älter als {stunden} Stunden verschwinden beim nächsten Upload von selbst.',
+    {
+      ordner: stand.ordner,
+      anzahl: stand.anzahl,
+      platz: bytes(stand.bytes),
+      stunden: stand.maxAlterStunden,
+    },
+  );
 
   liste.textContent = '';
   liste.classList.remove('versteckt');
@@ -1094,6 +1295,7 @@ async function speicherePfade() {
       overlayPath: el('overlay-pfad').value.trim(),
       mappingPath: el('mapping-pfad').value.trim(),
       renderDir: el('render-pfad').value.trim(),
+      archiveDir: el('ablage-pfad').value.trim(),
       overlayFrames: Number(el('overlay-frames').value) || 1,
       markerColor: el('farbe-offen').value,
       markerColorResolved: el('farbe-erledigt').value,
@@ -1101,7 +1303,7 @@ async function speicherePfade() {
     }),
   );
   if (gespeichert) {
-    status('Einstellungen gespeichert.', 'gut');
+    status(t('Einstellungen gespeichert.'), 'gut');
     await ladeZustand();
   }
 }
@@ -1109,7 +1311,7 @@ async function speicherePfade() {
 async function starteKopplung() {
   const adresse = el('server-url').value.trim();
   if (!adresse) {
-    status('Erst die Adresse der Klappe-Instanz eintragen.', 'fehler');
+    status(t('Erst die Adresse der Klappe-Instanz eintragen.'), 'fehler');
     return;
   }
   await aufruf(window.klappe.saveConfig({ serverUrl: adresse }));
@@ -1119,15 +1321,16 @@ async function starteKopplung() {
 
   el('kopplung').classList.remove('versteckt');
   el('benutzercode').textContent = kopplung.userCode;
-  el('kopplung-status').textContent = `Gilt ${Math.round(
-    kopplung.expiresInSeconds / 60,
-  )} Minuten. Gerätename: ${kopplung.clientName}`;
+  el('kopplung-status').textContent = t('Gilt {minuten} Minuten. Gerätename: {name}', {
+    minuten: Math.round(kopplung.expiresInSeconds / 60),
+    name: kopplung.clientName,
+  });
   el('kopplung-browser').onclick = () =>
     window.klappe.openExternal(kopplung.verificationUrlComplete || kopplung.verificationUrl);
 
   // Direkt aufmachen: Wer am Schnittplatz sitzt, hat den Browser danebenstehen.
   await window.klappe.openExternal(kopplung.verificationUrlComplete || kopplung.verificationUrl);
-  status('Im Browser bestätigen – das Panel wartet.');
+  status(t('Im Browser bestätigen – das Panel wartet.'));
 }
 
 /* ------------------------------------------------------------ Verdrahtung */
@@ -1166,10 +1369,26 @@ function verdrahte() {
   );
   el('ziel-video').addEventListener('change', ladeFassungenFuerUpload);
   el('ziel-fassung').addEventListener('change', zeigeErsetzenWarnung);
+  el('ziel-ablage-an').addEventListener('change', () => {
+    zeigeAblageZeile();
+    el('ziel-ablage').dataset.beruehrt = 'ja';
+  });
+  el('ziel-ablage').addEventListener('input', (ereignis) => {
+    // Ab der ersten Eingabe nicht mehr aus den Einstellungen überschreiben.
+    ereignis.target.dataset.beruehrt = 'ja';
+  });
+  el('ziel-ablage-waehlen').addEventListener('click', async (ereignis) => {
+    ereignis.preventDefault();
+    const pfad = await aufruf(window.klappe.pickFolder(t('Ordner für die Zweitablage')));
+    if (!pfad) return;
+    el('ziel-ablage').value = pfad;
+    el('ziel-ablage').dataset.beruehrt = 'ja';
+  });
+
   el('hochladen-start').addEventListener('click', starteUpload);
   el('hochladen-abbruch').addEventListener('click', async () => {
     await window.klappe.uploadAbort();
-    status('Abbruch angefordert – der angefangene Upload lässt sich später fortsetzen.');
+    status(t('Abbruch angefordert – der angefangene Upload lässt sich später fortsetzen.'));
   });
 
   // Einstellungen
@@ -1178,7 +1397,7 @@ function verdrahte() {
       window.klappe.saveConfig({ serverUrl: el('server-url').value.trim() }),
     );
     if (gespeichert) {
-      status('Adresse gespeichert.', 'gut');
+      status(t('Adresse gespeichert.'), 'gut');
       await ladeZustand();
     }
   });
@@ -1187,21 +1406,32 @@ function verdrahte() {
   el('kopplung-abbruch').addEventListener('click', async () => {
     await window.klappe.pairCancel();
     el('kopplung').classList.add('versteckt');
-    status('Kopplung abgebrochen.');
+    status(t('Kopplung abgebrochen.'));
   });
 
   el('trennen').addEventListener('click', async () => {
-    if (!window.confirm('Verbindung zu Klappe trennen?')) return;
+    if (!window.confirm(t('Verbindung zu Klappe trennen?'))) return;
     const ergebnis = await aufruf(window.klappe.disconnect());
     if (ergebnis) {
       status(
         ergebnis.serverSide
-          ? 'Getrennt – das Gerät ist auch in Klappe entfernt.'
-          : 'Lokal getrennt. In Klappe steht das Gerät ggf. noch unter „Mein Konto → Verbundene Geräte".',
+          ? t('Getrennt – das Gerät ist auch in Klappe entfernt.')
+          : t(
+              'Lokal getrennt. In Klappe steht das Gerät ggf. noch unter „Mein Konto → Verbundene Geräte".',
+            ),
         'gut',
       );
       await ladeZustand();
     }
+  });
+
+  el('sprache').addEventListener('change', async (ereignis) => {
+    const gespeichert = await aufruf(window.klappe.saveConfig({ language: ereignis.target.value }));
+    if (!gespeichert) return;
+    // `ladeZustand` holt die Sprache neu, übersetzt das Dokument und zeichnet
+    // alles noch einmal – dadurch springt das Panel sofort um.
+    await ladeZustand();
+    status(t('Sprache umgestellt.'), 'gut');
   });
 
   el('intern-speichern').addEventListener('click', async () => {
@@ -1213,8 +1443,8 @@ function verdrahte() {
     await ladeHochladen();
     status(
       gespeichert.internalMode === 'immer'
-        ? 'Fassungen werden ab jetzt immer intern hochgeladen.'
-        : 'Der Haken im Upload-Dialog entscheidet ab jetzt je Fassung.',
+        ? t('Fassungen werden ab jetzt immer intern hochgeladen.')
+        : t('Der Haken im Upload-Dialog entscheidet ab jetzt je Fassung.'),
       'gut',
     );
   });
@@ -1229,8 +1459,9 @@ function verdrahte() {
   el('renders-pruefen').addEventListener('click', ladeRenderReste);
   el('renders-aufraeumen').addEventListener('click', async () => {
     const sicher = window.confirm(
-      'Alle liegen gebliebenen Zwischen-Master löschen?\n\n' +
+      `${t('Alle liegen gebliebenen Zwischen-Master löschen?')}\n\n${t(
         'Was gerade hochgeladen wird, bleibt unangetastet. Die Dateien in Klappe sind davon nicht betroffen – das hier ist nur der Renderordner.',
+      )}`,
     );
     if (!sicher) return;
 
@@ -1238,8 +1469,11 @@ function verdrahte() {
     if (!ergebnis) return;
     status(
       ergebnis.geloescht > 0
-        ? `${ergebnis.geloescht} Datei(en) gelöscht, ${bytes(ergebnis.bytes)} frei.`
-        : 'Nichts zu löschen.',
+        ? t('{anzahl} Datei(en) gelöscht, {platz} frei.', {
+            anzahl: ergebnis.geloescht,
+            platz: bytes(ergebnis.bytes),
+          })
+        : t('Nichts zu löschen.'),
       'gut',
     );
     await ladeRenderReste();
@@ -1248,12 +1482,13 @@ function verdrahte() {
   for (const knopf of document.querySelectorAll('button[data-pfad]')) {
     knopf.addEventListener('click', async (event) => {
       event.preventDefault();
-      const pfad = await aufruf(window.klappe.pickFolder('Ordner wählen'));
+      const pfad = await aufruf(window.klappe.pickFolder(t('Ordner wählen')));
       if (!pfad) return;
       const feld = {
         overlayPath: 'overlay-pfad',
         mappingPath: 'mapping-pfad',
         renderDir: 'render-pfad',
+        archiveDir: 'ablage-pfad',
       }[knopf.dataset.pfad];
       el(feld).value = pfad;
     });
@@ -1261,15 +1496,23 @@ function verdrahte() {
 
   window.klappe.onEvent((ereignis) => {
     if (ereignis.type === 'upload:progress') {
-      el('balken-fuellung').style.width = `${ereignis.percent || 0}%`;
-      el('fortschritt-text').textContent = ereignis.text || '';
+      // Die Zweitablage läuft gleichzeitig und bekommt deshalb eine eigene
+      // Zeile – sonst überschrieben sich die beiden Meldungen gegenseitig.
+      if (ereignis.phase === 'kopie') {
+        el('kopie-text').textContent = ereignis.text || '';
+      } else {
+        el('balken-fuellung').style.width = `${ereignis.percent || 0}%`;
+        el('fortschritt-text').textContent = ereignis.text || '';
+      }
     }
     if (ereignis.type === 'pair:tick') {
-      el('kopplung-status').textContent = `Warte auf Bestätigung … noch ${ereignis.secondsLeft} s`;
+      el('kopplung-status').textContent = t('Warte auf Bestätigung … noch {sekunden} s', {
+        sekunden: ereignis.secondsLeft,
+      });
     }
     if (ereignis.type === 'pair:done') {
       el('kopplung').classList.add('versteckt');
-      status(`Verbunden als ${ereignis.user?.name || ereignis.name}.`, 'gut');
+      status(t('Verbunden als {name}.', { name: ereignis.user?.name || ereignis.name }), 'gut');
       void ladeZustand();
     }
     if (ereignis.type === 'pair:failed') {

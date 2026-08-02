@@ -13,6 +13,8 @@
 
 const path = require('node:path');
 
+const { t } = require('./i18n.js');
+
 const PLUGIN_ID = 'de.klappe.davinci';
 const NATIVE_MODULE = path.join(__dirname, '..', 'WorkflowIntegration.node');
 
@@ -33,9 +35,10 @@ function loadIntegration() {
     return integration;
   } catch (error) {
     initError = new Error(
-      'WorkflowIntegration.node fehlt oder passt nicht zu dieser Resolve-Version. ' +
-        'Bitte install.sh (macOS) bzw. install.ps1 (Windows) noch einmal laufen lassen – ' +
-        `das Modul wird dabei aus der lokalen Resolve-Installation kopiert. (${error.message})`,
+      t(
+        'WorkflowIntegration.node fehlt oder passt nicht zu dieser Resolve-Version. Bitte install.sh (macOS) bzw. install.ps1 (Windows) noch einmal laufen lassen – das Modul wird dabei aus der lokalen Resolve-Installation kopiert. ({grund})',
+        { grund: error.message },
+      ),
     );
     return null;
   }
@@ -52,20 +55,21 @@ async function getResolve() {
     const ready = await module.Initialize(PLUGIN_ID);
     if (!ready) {
       initError = new Error(
-        'Resolve hat die Verbindung zum Plugin abgelehnt. Läuft DaVinci Resolve Studio? ' +
-          'Workflow-Panels gibt es in der kostenlosen Fassung nicht.',
+        t(
+          'Resolve hat die Verbindung zum Plugin abgelehnt. Läuft DaVinci Resolve Studio? Workflow-Panels gibt es in der kostenlosen Fassung nicht.',
+        ),
       );
       return null;
     }
     resolveObj = await module.GetResolve();
     if (!resolveObj) {
-      initError = new Error('Resolve liefert kein Projekt-Objekt zurück.');
+      initError = new Error(t('Resolve liefert kein Projekt-Objekt zurück.'));
       return null;
     }
     initError = null;
     return resolveObj;
   } catch (error) {
-    initError = new Error(`Verbindung zu Resolve fehlgeschlagen: ${error.message}`);
+    initError = new Error(t('Verbindung zu Resolve fehlgeschlagen: {grund}', { grund: error.message }));
     return null;
   }
 }
@@ -133,13 +137,13 @@ async function timelineDropFrame(timeline) {
 async function context() {
   const resolve = await getResolve();
   if (!resolve) {
-    return { ok: false, reason: lastError() || 'Keine Verbindung zu Resolve.' };
+    return { ok: false, reason: lastError() || t('Keine Verbindung zu Resolve.') };
   }
 
   const manager = await resolve.GetProjectManager();
   const project = manager ? await manager.GetCurrentProject() : null;
   if (!project) {
-    return { ok: false, reason: 'In Resolve ist kein Projekt geöffnet.' };
+    return { ok: false, reason: t('In Resolve ist kein Projekt geöffnet.') };
   }
 
   const projectName = await project.GetName();
@@ -147,7 +151,7 @@ async function context() {
   if (!timeline) {
     return {
       ok: false,
-      reason: 'In Resolve ist keine Timeline aktiv.',
+      reason: t('In Resolve ist keine Timeline aktiv.'),
       projectName,
     };
   }
@@ -273,13 +277,13 @@ async function renderPresets() {
  */
 async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, onProgress }) {
   const project = await getProject();
-  if (!project) throw new Error('In Resolve ist kein Projekt geöffnet.');
+  if (!project) throw new Error(t('In Resolve ist kein Projekt geöffnet.'));
 
   const timeline = await project.GetCurrentTimeline();
-  if (!timeline) throw new Error('In Resolve ist keine Timeline aktiv.');
+  if (!timeline) throw new Error(t('In Resolve ist keine Timeline aktiv.'));
 
   if (!(await project.LoadRenderPreset(preset))) {
-    throw new Error(`Das Render-Preset „${preset}" ließ sich nicht laden.`);
+    throw new Error(t('Das Render-Preset „{preset}" ließ sich nicht laden.', { preset }));
   }
 
   const settings = {
@@ -302,15 +306,15 @@ async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, on
   }
 
   if (!(await project.SetRenderSettings(settings))) {
-    throw new Error('Die Render-Einstellungen ließen sich nicht setzen.');
+    throw new Error(t('Die Render-Einstellungen ließen sich nicht setzen.'));
   }
 
   const jobId = await project.AddRenderJob();
-  if (!jobId) throw new Error('Resolve hat keinen Render-Auftrag angelegt.');
+  if (!jobId) throw new Error(t('Resolve hat keinen Render-Auftrag angelegt.'));
 
   if (!(await project.StartRendering(jobId))) {
     await project.DeleteRenderJob(jobId);
-    throw new Error('Resolve hat das Rendern nicht gestartet.');
+    throw new Error(t('Resolve hat das Rendern nicht gestartet.'));
   }
 
   // Auf das Ende warten. Resolve meldet den Fortschritt am Auftrag; wir fragen
@@ -331,8 +335,10 @@ async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, on
   if (state !== 'Complete') {
     throw new Error(
       state === 'Cancelled'
-        ? 'Das Rendern wurde in Resolve abgebrochen.'
-        : `Das Rendern ist fehlgeschlagen (${state || 'unbekannter Status'}).`,
+        ? t('Das Rendern wurde in Resolve abgebrochen.')
+        : t('Das Rendern ist fehlgeschlagen ({stand}).', {
+            stand: state || t('unbekannter Status'),
+          }),
     );
   }
 

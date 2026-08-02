@@ -21,12 +21,18 @@ $ErrorActionPreference = 'Stop'
 # Adresse der Klappe-Instanz, z. B. "klappe.example.de"
 $Server = ''
 
+# Sprache des Panels: 'auto', 'de' oder 'en'.
+$Sprache = 'auto'
+
 # Gemeinsame Ablagen auf dem Medien-Server. Leer = Ordner im Benutzerverzeichnis.
 $AblageZeichnungen = ''    # die Overlay-PNGs
 $AblageZuordnung   = ''    # klappe-mapping.json (Timeline <-> Fassung)
 
 # Zwischenordner fürs Rendern. Leer = Temp-Ordner des Systems.
 $RenderOrdner = ''
+
+# Zweitablage: Wohin der Master zusätzlich kopiert wird. Leer = Haken ist aus.
+$AblageZweitkopie = ''
 
 # Interne Fassungen: 'immer' oder 'wahl'.
 $InternModus = 'immer'
@@ -110,9 +116,11 @@ if ($EigeneEinstellungenZuruecksetzen -and (Test-Path $ConfigDatei)) {
 # ConvertTo-Json übernimmt das Escapen – auch für Pfade mit Rückstrichen.
 $Vorgaben = [ordered]@{
     serverUrl             = $Server
+    language              = $Sprache
     overlayPath           = $AblageZeichnungen
     mappingPath           = $AblageZuordnung
     renderDir             = $RenderOrdner
+    archiveDir            = $AblageZweitkopie
     internalMode          = $InternModus
     standardPresetsMode   = $MitgeliefertePresets
     defaultPreset         = $VorgewaehltesPreset

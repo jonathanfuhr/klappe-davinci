@@ -12,7 +12,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const api = require('./api.js');
+const archive = require('./archive.js');
 const config = require('./config.js');
+const { t } = require('./i18n.js');
 const mapping = require('./mapping.js');
 const overlays = require('./overlays.js');
 const renders = require('./renders.js');
@@ -161,7 +163,7 @@ function findRendered(dir, clipName) {
  * weiter.
  */
 async function run(options, onProgress = () => {}) {
-  if (running) throw new api.KlappeError('Es läuft bereits ein Upload.');
+  if (running) throw new api.KlappeError(t('Es läuft bereits ein Upload.'));
 
   const signal = { aborted: false };
   running = signal;
@@ -196,6 +198,8 @@ async function run(options, onProgress = () => {}) {
   let rendered = null;
   let session = null;
   let erfolgreich = false;
+  /** Läuft die Zweitablage? Das Versprechen scheitert nie – es liefert `{ ok }`. */
+  let kopie = null;
   /** Zustand der Overlay-Spur vor dem Rendern – danach wird er wiederhergestellt. */
   let overlaySpur = null;
 
@@ -206,7 +210,10 @@ async function run(options, onProgress = () => {}) {
     onProgress({
       phase: 'render',
       percent: 0,
-      text: `${aufgeraeumt.geloescht} alte Zwischendatei(en) weggeräumt (${formatBytes(aufgeraeumt.bytes)} frei).`,
+      text: t('{anzahl} alte Zwischendatei(en) weggeräumt ({platz} frei).', {
+        anzahl: aufgeraeumt.geloescht,
+        platz: formatBytes(aufgeraeumt.bytes),
+      }),
     });
   }
 
@@ -222,7 +229,9 @@ async function run(options, onProgress = () => {}) {
         onProgress({
           phase: 'render',
           percent: 0,
-          text: `Spur „${ausgeblendet.track}" ausgeblendet – die Zeichnungen kommen nicht in den Master.`,
+          text: t('Spur „{spur}" ausgeblendet – die Zeichnungen kommen nicht in den Master.', {
+            spur: ausgeblendet.track,
+          }),
         });
       }
     } catch {
@@ -231,7 +240,7 @@ async function run(options, onProgress = () => {}) {
     }
 
     /* 1. Rendern -------------------------------------------------------- */
-    onProgress({ phase: 'render', percent: 0, text: 'Resolve rendert …' });
+    onProgress({ phase: 'render', percent: 0, text: t('Resolve rendert …') });
 
     // Resolves eigenes Verhalten ist die Vorgabe: In/Out, wenn gesetzt, sonst
     // die ganze Timeline. `wholeTimeline: true` erzwingt die ganze Timeline
@@ -252,7 +261,11 @@ async function run(options, onProgress = () => {}) {
         markIn: useRange ? context.markInAbsolute : undefined,
         markOut: useRange ? context.markOutAbsolute : undefined,
         onProgress: (percent) =>
-          onProgress({ phase: 'render', percent, text: `Resolve rendert … ${percent} %` }),
+          onProgress({
+            phase: 'render',
+            percent,
+            text: t('Resolve rendert … {prozent} %', { prozent: percent }),
+          }),
       });
     } catch (fehler) {
       // Bei einem Abbruch hinterlässt Resolve ein angefangenes Bruchstück.
@@ -272,7 +285,9 @@ async function run(options, onProgress = () => {}) {
     rendered = findRendered(dir, clipName);
     if (!rendered) {
       throw new api.KlappeError(
-        `Im Zwischenordner liegt keine gerenderte Datei (${dir}). Schreibt das Preset vielleicht woandershin?`,
+        t('Im Zwischenordner liegt keine gerenderte Datei ({ordner}). Schreibt das Preset vielleicht woandershin?', {
+          ordner: dir,
+        }),
       );
     }
     // Ab jetzt steht die Datei im Buch: Auch wenn Resolve gleich abstürzt,
@@ -280,7 +295,7 @@ async function run(options, onProgress = () => {}) {
     renders.merken(rendered.path, { timeline: context.timelineName });
 
     /* 2. Sitzung eröffnen ----------------------------------------------- */
-    onProgress({ phase: 'upload', percent: 0, text: 'Upload wird angemeldet …' });
+    onProgress({ phase: 'upload', percent: 0, text: t('Upload wird angemeldet …') });
 
     session = await tus.createVersionSession(options.videoId, {
       filename: path.basename(rendered.path),
@@ -291,6 +306,31 @@ async function run(options, onProgress = () => {}) {
       internal,
       replace: Boolean(options.replace),
     });
+
+    /* 2b. Zweitablage anstoßen – **gleichzeitig** mit dem Upload.
+       Ein UHD-Master über ein Netzlaufwerk zu kopieren dauert so lange wie das
+       Hochladen; nacheinander wäre der Schnittplatz doppelt so lange belegt. */
+    if (options.archiveDir) {
+      const zielname = archive.freierName(options.archiveDir, path.basename(rendered.path));
+      kopie = archive
+        .kopiere(rendered.path, zielname, {
+          signal,
+          onProgress: (uebertragen, gesamt) => {
+            const percent = gesamt > 0 ? Math.floor((uebertragen / gesamt) * 100) : 0;
+            onProgress({
+              phase: 'kopie',
+              percent,
+              text: t('Zweitablage … {prozent} % ({gesendet} von {gesamt})', {
+                prozent: percent,
+                gesendet: formatBytes(uebertragen),
+                gesamt: formatBytes(gesamt),
+              }),
+            });
+          },
+        })
+        .then((ergebnis) => ({ ok: true, ...ergebnis }))
+        .catch((fehler) => ({ ok: false, reason: fehler.message }));
+    }
 
     /* 3. Übertragen ------------------------------------------------------ */
     const startedAt = Date.now();
@@ -308,28 +348,45 @@ async function run(options, onProgress = () => {}) {
           percent,
           sent,
           total,
-          text: `Hochladen … ${percent} % (${formatBytes(sent)} von ${formatBytes(total)}${
-            perSecond > 0 ? `, ${formatBytes(perSecond)}/s` : ''
-          })`,
+          text: t('Hochladen … {prozent} % ({gesendet} von {gesamt}{tempo})', {
+            prozent: percent,
+            gesendet: formatBytes(sent),
+            gesamt: formatBytes(total),
+            tempo: perSecond > 0 ? `, ${formatBytes(perSecond)}/s` : '',
+          }),
         });
       },
     });
 
     if (!versionId) {
       throw new api.KlappeError(
-        'Der Server hat keine Fassungs-ID gemeldet. Die Datei ist übertragen – bitte im Browser nachsehen.',
+        t(
+          'Der Server hat keine Fassungs-ID gemeldet. Die Datei ist übertragen – bitte im Browser nachsehen.',
+        ),
       );
     }
 
     /* 4. Auf die Verarbeitung warten ------------------------------------ */
-    onProgress({ phase: 'verify', percent: 0, text: 'Klappe verarbeitet die Fassung …' });
+    onProgress({ phase: 'verify', percent: 0, text: t('Klappe verarbeitet die Fassung …') });
     const version = await waitForVersion(versionId, signal, (percent) =>
       onProgress({
         phase: 'verify',
         percent,
-        text: `Klappe verarbeitet die Fassung … ${percent} %`,
+        text: t('Klappe verarbeitet die Fassung … {prozent} %', { prozent: percent }),
       }),
     );
+
+    /* 4b. Auf die Zweitablage warten und ihr den Hausnamen geben ---------- */
+    let ablage = null;
+    if (kopie) {
+      onProgress({ phase: 'kopie', percent: 100, text: t('Zweitablage wird abgeschlossen …') });
+      ablage = await kopie;
+      kopie = null;
+      if (ablage.ok) {
+        // Erst jetzt steht fest, wie Klappe die Fassung nennt.
+        ablage.path = archive.benenneUm(ablage.path, version.downloadFilename);
+      }
+    }
 
     /* 5. Sidecar schreiben ---------------------------------------------- */
     const entry = mapping.put(context.timelineId, {
@@ -353,6 +410,7 @@ async function run(options, onProgress = () => {}) {
     return {
       version,
       entry,
+      ablage,
       webUrl: version.webUrl ? `${api.baseUrl()}${version.webUrl}` : '',
       file: { path: rendered.path, size: rendered.size },
     };
@@ -364,6 +422,17 @@ async function run(options, onProgress = () => {}) {
     throw error;
   } finally {
     running = null;
+
+    // Erst die Kopie zu Ende bringen, dann darf die Quelle verschwinden – sonst
+    // läse sie gleich aus einer Datei, die es nicht mehr gibt. Das Versprechen
+    // scheitert nie, `await` ist hier also gefahrlos.
+    if (kopie) {
+      try {
+        await kopie;
+      } catch {
+        /* kann nicht vorkommen, kostet aber nichts */
+      }
+    }
 
     // Die Spur wieder so hinterlassen, wie sie war – auch nach einem Abbruch.
     // (Das Auflösen von `fertig` steht am Ende dieses Blocks.)
@@ -438,7 +507,9 @@ async function waitForVersion(versionId, signal, onProgress) {
     if (version.status === 'READY') return version;
     if (version.status === 'FAILED') {
       throw new api.KlappeError(
-        `Klappe konnte die Fassung nicht verarbeiten: ${version.processingError || 'kein Grund genannt'}`,
+        t('Klappe konnte die Fassung nicht verarbeiten: {grund}', {
+          grund: version.processingError || t('kein Grund genannt'),
+        }),
         { code: 'verarbeitung' },
       );
     }

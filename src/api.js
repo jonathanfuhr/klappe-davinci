@@ -18,6 +18,7 @@ const https = require('node:https');
 const { URL } = require('node:url');
 
 const config = require('./config.js');
+const { t } = require('./i18n.js');
 const secrets = require('./secrets.js');
 
 /** Fehler mit Status und einer Meldung, die man einem Menschen zeigen kann. */
@@ -45,7 +46,7 @@ function raw(method, url, { headers = {}, body = null, timeoutMs = 0 } = {}) {
     try {
       target = new URL(url);
     } catch {
-      reject(new KlappeError(`Die Adresse „${url}" ergibt keine gültige URL.`));
+      reject(new KlappeError(t('Die Adresse „{adresse}" ergibt keine gültige URL.', { adresse: url })));
       return;
     }
 
@@ -68,7 +69,7 @@ function raw(method, url, { headers = {}, body = null, timeoutMs = 0 } = {}) {
 
     if (timeoutMs > 0) {
       request.setTimeout(timeoutMs, () => {
-        request.destroy(new KlappeError('Die Anfrage hat zu lange gedauert.'));
+        request.destroy(new KlappeError(t('Die Anfrage hat zu lange gedauert.')));
       });
     }
 
@@ -91,32 +92,39 @@ function raw(method, url, { headers = {}, body = null, timeoutMs = 0 } = {}) {
 function translateNetworkError(error, target) {
   if (error instanceof KlappeError) return error;
 
-  const host = target ? target.host : 'dem Server';
+  const host = target ? target.host : t('dem Server');
   switch (error.code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
       return new KlappeError(
-        `„${host}" ist nicht auffindbar. Stimmt die Adresse in den Einstellungen?`,
+        t('„{host}" ist nicht auffindbar. Stimmt die Adresse in den Einstellungen?', { host }),
         { code: error.code },
       );
     case 'ECONNREFUSED':
-      return new KlappeError(`${host} nimmt keine Verbindung an. Läuft die Klappe-Instanz?`, {
-        code: error.code,
-      });
+      return new KlappeError(
+        t('{host} nimmt keine Verbindung an. Läuft die Klappe-Instanz?', { host }),
+        { code: error.code },
+      );
     case 'ETIMEDOUT':
     case 'ECONNRESET':
-      return new KlappeError(`Die Verbindung zu ${host} ist abgerissen.`, { code: error.code });
+      return new KlappeError(t('Die Verbindung zu {host} ist abgerissen.', { host }), {
+        code: error.code,
+      });
     case 'CERT_HAS_EXPIRED':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
       return new KlappeError(
-        `Das Zertifikat von ${host} lässt sich nicht prüfen. Bei einer Anlage mit eigenem Zertifikat muss es auf diesem Rechner als vertrauenswürdig eingetragen sein.`,
+        t(
+          'Das Zertifikat von {host} lässt sich nicht prüfen. Bei einer Anlage mit eigenem Zertifikat muss es auf diesem Rechner als vertrauenswürdig eingetragen sein.',
+          { host },
+        ),
         { code: error.code },
       );
     default:
-      return new KlappeError(`Verbindung zu ${host} fehlgeschlagen: ${error.message}`, {
-        code: error.code || '',
-      });
+      return new KlappeError(
+        t('Verbindung zu {host} fehlgeschlagen: {grund}', { host, grund: error.message }),
+        { code: error.code || '' },
+      );
   }
 }
 
@@ -124,7 +132,7 @@ function translateNetworkError(error, target) {
 function baseUrl() {
   const { serverUrl } = config.read();
   if (!serverUrl) {
-    throw new KlappeError('Es ist noch keine Klappe-Adresse eingetragen (Einstellungen).');
+    throw new KlappeError(t('Es ist noch keine Klappe-Adresse eingetragen (Einstellungen).'));
   }
   return serverUrl;
 }
@@ -163,42 +171,49 @@ function toError(response, { pathname = '' } = {}) {
 
   if (status === 401) {
     return new KlappeError(
-      'Der Zugang gilt nicht mehr – das Gerät wurde getrennt oder das Konto deaktiviert. Bitte neu koppeln.',
+      t(
+        'Der Zugang gilt nicht mehr – das Gerät wurde getrennt oder das Konto deaktiviert. Bitte neu koppeln.',
+      ),
       { status, code: 'nicht-gekoppelt', detail },
     );
   }
   if (status === 403) {
     return new KlappeError(
-      'Der externe API-Zugriff ist auf dem Server abgeschaltet. Das kann nur ein Administrator ändern (Einstellungen → API-Zugriff).',
+      t(
+        'Der externe API-Zugriff ist auf dem Server abgeschaltet. Das kann nur ein Administrator ändern (Einstellungen → API-Zugriff).',
+      ),
       { status, code: 'zugriff-aus', detail },
     );
   }
   if (status === 404) {
-    return new KlappeError(
-      detail || 'Nicht gefunden – oder für dieses Konto nicht sichtbar.',
-      { status, code: 'nicht-gefunden', detail },
-    );
+    // `detail` kommt vom Server und ist dort schon in der Sprache des
+    // Anfragenden – das übersetzen wir nicht noch einmal.
+    return new KlappeError(detail || t('Nicht gefunden – oder für dieses Konto nicht sichtbar.'), {
+      status,
+      code: 'nicht-gefunden',
+      detail,
+    });
   }
   if (status === 429) {
     const retryAfter = Number(response.headers['retry-after']) || 5;
     return new KlappeError(
-      `Zu viele Anfragen. Klappe bittet um ${retryAfter} Sekunden Pause.`,
+      t('Zu viele Anfragen. Klappe bittet um {sekunden} Sekunden Pause.', {
+        sekunden: retryAfter,
+      }),
       { status, code: 'gebremst', retryAfter, detail },
     );
   }
   if (status >= 500) {
-    return new KlappeError(`Der Server meldet einen Fehler (${status}). ${detail}`.trim(), {
-      status,
-      code: 'server',
-      detail,
-    });
+    return new KlappeError(
+      `${t('Der Server meldet einen Fehler ({status}).', { status })} ${detail}`.trim(),
+      { status, code: 'server', detail },
+    );
   }
 
-  return new KlappeError(detail || `Die Anfrage an ${pathname} schlug fehl (${status}).`, {
-    status,
-    code: 'abgelehnt',
-    detail,
-  });
+  return new KlappeError(
+    detail || t('Die Anfrage an {pfad} schlug fehl ({status}).', { pfad: pathname, status }),
+    { status, code: 'abgelehnt', detail },
+  );
 }
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));

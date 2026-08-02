@@ -20,6 +20,8 @@ const auth = require('./auth.js');
 const comments = require('./comments.js');
 const config = require('./config.js');
 const frames = require('./frames.js');
+const i18n = require('./i18n.js');
+const { t } = i18n;
 const mapping = require('./mapping.js');
 const markers = require('./markers.js');
 const overlays = require('./overlays.js');
@@ -68,14 +70,13 @@ function createWindow() {
 
     const wahl = dialog.showMessageBoxSync(mainWindow, {
       type: 'warning',
-      buttons: ['Weiter hochladen', 'Abbrechen und schließen'],
+      buttons: [t('Weiter hochladen'), t('Abbrechen und schließen')],
       defaultId: 0,
       cancelId: 0,
-      message: 'Es läuft noch ein Upload nach Klappe.',
-      detail:
-        'Beim Schließen wird er abgebrochen. Die bereits übertragenen Daten verwirft Klappe; ' +
-        'der gerenderte Zwischen-Master bleibt liegen, sodass ein zweiter Anlauf nicht noch ' +
-        'einmal rendern muss.',
+      message: t('Es läuft noch ein Upload nach Klappe.'),
+      detail: t(
+        'Beim Schließen wird er abgebrochen. Die bereits übertragenen Daten verwirft Klappe; der gerenderte Zwischen-Master bleibt liegen, sodass ein zweiter Anlauf nicht noch einmal rendern muss.',
+      ),
     });
 
     if (wahl === 0) return;
@@ -91,12 +92,59 @@ function createWindow() {
   // Renderer. Wir reichen die Striche hinüber und bekommen ein PNG zurück.
   annotation.setRasterizer(async (payload) => {
     if (!mainWindow || mainWindow.isDestroyed()) {
-      throw new Error('Das Panel-Fenster ist geschlossen.');
+      throw new Error(t('Das Panel-Fenster ist geschlossen.'));
     }
     return mainWindow.webContents.executeJavaScript(
       `${annotation.RASTERIZER_SOURCE}(${JSON.stringify(payload)})`,
     );
   });
+}
+
+/* ---------------------------------------------------------------- Sprache */
+
+/**
+ * Welche Sprache gilt gerade?
+ *
+ * Gefragt wird bei jedem Zustandsabgleich neu – die Antwort kann sich ändern,
+ * ohne dass das Plugin etwas davon mitbekäme: durch eine Kopplung, durch das
+ * Umstellen im Klappe-Konto oder durch eine neue Vorgabe der Instanz.
+ *
+ * Die beiden Serverfragen dürfen scheitern, ohne dass etwas passiert. Genau
+ * dafür gibt es die weiteren Stufen der Kette.
+ */
+async function spracheBestimmen() {
+  const settings = config.read();
+  let kontoLocale = null;
+  let instanzLocale = null;
+
+  if (settings.serverUrl) {
+    if (secrets.hasToken()) {
+      try {
+        const me = await auth.me();
+        kontoLocale = me?.locale || null;
+      } catch {
+        /* Nicht erreichbar oder Token entzogen – dann die nächste Stufe. */
+      }
+    }
+    try {
+      // Ohne Token: `/v1/branding` ist öffentlich, und mit `Authorization` im
+      // Kopf würde die Anfrage bei abgeschaltetem API-Zugriff auf 403 laufen.
+      const branding = await api.get('/v1/branding', { token: null });
+      instanzLocale = branding?.defaultLocale || null;
+    } catch {
+      /* dito */
+    }
+  }
+
+  const entscheidung = i18n.bestimmen({
+    einstellung: settings.language === 'auto' ? null : settings.language,
+    kontoLocale,
+    instanzLocale,
+    systemLocale: app.getLocale(),
+  });
+
+  i18n.setLocale(entscheidung.locale);
+  return { ...entscheidung, katalog: i18n.katalog(), namen: i18n.LOCALE_NAMES };
 }
 
 /** Ereignis ans Panel schicken – Fortschritt, Kopplungsstand, Hinweise. */
@@ -131,6 +179,11 @@ function registerHandlers() {
   /* -------------------------------------------------- Zustand & Einstellungen */
 
   handle('klappe:state', async () => {
+    // Erst die Sprache, dann alles andere: Die Meldungen, die gleich entstehen
+    // (etwa „In Resolve ist kein Projekt geöffnet."), sollen schon in der
+    // richtigen Sprache herauskommen.
+    const sprache = await spracheBestimmen();
+
     const settings = config.read();
     const context = await resolveBridge.context();
     const entry = context.ok ? mapping.get(context.timelineId) : null;
@@ -148,6 +201,7 @@ function registerHandlers() {
 
     return {
       settings,
+      sprache,
       hasToken: secrets.hasToken(),
       tokenStorage: secrets.storageKind(),
       user,
@@ -164,7 +218,7 @@ function registerHandlers() {
 
   handle('klappe:pickFolder', async (title) => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: title || 'Ordner wählen',
+      title: title || t('Ordner wählen'),
       properties: ['openDirectory', 'createDirectory'],
     });
     return result.canceled ? '' : result.filePaths[0];
@@ -226,7 +280,7 @@ function registerHandlers() {
       fps: context.frameRate,
       dropFrame: context.dropFrame,
     });
-    if (!timecode) throw new Error('Die Framerate der Timeline ist nicht lesbar.');
+    if (!timecode) throw new Error(t('Die Framerate der Timeline ist nicht lesbar.'));
 
     const moved = await resolveBridge.setCurrentTimecode(timecode);
     return { timecode, moved };
@@ -356,6 +410,10 @@ app.whenReady().then(() => {
   // also nur von einem Absturz stammen. Ohne das Entsperren wäre die Datei
   // für immer vor dem Aufräumen geschützt.
   renders.entsperren();
+
+  // Die Sprache vor dem ersten Fenster festlegen: Ein Fehler beim Start soll
+  // nicht auf Deutsch aufblitzen und dann umspringen.
+  void spracheBestimmen();
 
   registerHandlers();
   createWindow();

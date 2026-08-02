@@ -22,6 +22,11 @@ set -euo pipefail
 # Adresse der Klappe-Instanz, z. B. "klappe.example.de"
 SERVER=""
 
+# Sprache des Panels: auto, de oder en.
+# `auto` folgt der Sprache des Klappe-Kontos, sonst der Vorgabe der Instanz,
+# sonst der Systemsprache – und zuletzt Englisch.
+SPRACHE="auto"
+
 # Gemeinsame Ablagen auf dem Medien-Server. Leer = Ordner im Benutzerverzeichnis.
 ABLAGE_ZEICHNUNGEN=""     # die Overlay-PNGs
 ABLAGE_ZUORDNUNG=""       # klappe-mapping.json (Timeline ↔ Fassung)
@@ -29,6 +34,11 @@ ABLAGE_ZUORDNUNG=""       # klappe-mapping.json (Timeline ↔ Fassung)
 # Zwischenordner fürs Rendern. Leer = Temp-Ordner des Systems.
 # Bei UHD-Mastern lohnt ein Pfad auf der schnellen Arbeitsplatte.
 RENDER_ORDNER=""
+
+# Zweitablage: Wohin der Master **zusätzlich** kopiert wird, etwa in den
+# Projektordner auf dem Medien-Server. Leer = Haken im Upload-Dialog ist aus.
+# Steht hier ein Pfad, ist der Haken vorbelegt – pro Upload änderbar.
+ABLAGE_ZWEITKOPIE=""
 
 # Interne Fassungen:
 #   immer – jede Fassung entsteht intern und wird nach dem Review freigegeben
@@ -200,9 +210,11 @@ fi
 cat > "${EINSTELLUNGEN}/vorgaben.json" <<VORGABEN
 {
   "serverUrl": "$(json_text "${SERVER}")",
+  "language": "$(json_text "${SPRACHE}")",
   "overlayPath": "$(json_text "${ABLAGE_ZEICHNUNGEN}")",
   "mappingPath": "$(json_text "${ABLAGE_ZUORDNUNG}")",
   "renderDir": "$(json_text "${RENDER_ORDNER}")",
+  "archiveDir": "$(json_text "${ABLAGE_ZWEITKOPIE}")",
   "internalMode": "$(json_text "${INTERN_MODUS}")",
   "standardPresetsMode": "$(json_text "${MITGELIEFERTE_PRESETS}")",
   "defaultPreset": "$(json_text "${VORGEWAEHLTES_PRESET}")",

@@ -93,6 +93,22 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Mit einem Gast-Token ist der Haken nicht da
 - [ ] Der Zwischen-Master ist nach dem Upload aus dem Renderordner verschwunden
 
+### Zusätzlich lokal ablegen
+
+- [ ] Haken aus → keine Kopie, alles wie bisher
+- [ ] Haken an ohne Ordner → Meldung statt Start
+- [ ] Haken an mit Ordner: Die Kopie läuft **gleichzeitig** mit dem Upload
+      (zweite Zeile unter dem Fortschrittsbalken zählt mit)
+- [ ] Nach dem Upload liegt die Datei dort unter dem Klappe-Dateinamen
+      (`JJMMTT_Kunde_Video_vN_1080p25.mov`), nicht unter dem Zwischennamen
+- [ ] Zielordner mit gleichnamiger Datei → die Kopie bekommt `-2`, das
+      vorhandene bleibt unangetastet
+- [ ] Upload mittendrin abbrechen → im Zielordner liegt **kein** Bruchstück
+- [ ] Netzlaufwerk nicht gemountet → der Upload läuft trotzdem durch, die
+      gescheiterte Kopie steht als Warnung im Ergebnis
+- [ ] Vorgabe aus den Einstellungen belegt den Haken vor; eine Änderung im
+      Upload-Dialog wandert **nicht** in die Einstellungen zurück
+
 ### Zwischenordner und Abbrüche
 
 - [ ] Render in Resolve abbrechen → das Fragment ist **sofort** weg
@@ -177,6 +193,24 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       unter dem richtigen Namen
 - [ ] **Erledigt** und **Wieder öffnen** wirken auf beiden Seiten
 - [ ] **Neu laden** holt Änderungen aus dem Browser
+
+## Sprache
+
+- [ ] Ohne Kopplung und mit englischem System ist das Panel **englisch**
+- [ ] Mit deutschem System, aber ohne Kopplung, ist es deutsch
+      (Systemsprache schlägt den Rückfall)
+- [ ] Nach der Kopplung folgt es der Sprache des Klappe-Kontos – im Konto
+      umstellen, im Panel *Aktualisieren*, Sprache springt um
+- [ ] Ohne eigene Wahl im Konto gilt die Vorgabe der Instanz
+- [ ] Die Auswahl *Deutsch* / *English* in den Einstellungen überstimmt alles
+      und wirkt sofort, ohne Neustart
+- [ ] Unter der Auswahl steht, **woher** die Sprache gerade kommt
+- [ ] Umschalten und zurück: Es bleiben keine halb übersetzten Stellen stehen
+      (das feste HTML wird gegen das Original übersetzt, nicht gegen den schon
+      übersetzten Text)
+- [ ] Datum und Uhrzeit an den Kommentaren folgen der Sprache
+- [ ] Fehlermeldungen vom Server kommen in der Sprache des Kontos – die
+      übersetzt das Plugin nicht noch einmal
 
 ## Phase 6 – Feinschliff
 

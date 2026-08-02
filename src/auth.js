@@ -12,6 +12,7 @@
 const os = require('node:os');
 
 const api = require('./api.js');
+const { t } = require('./i18n.js');
 const secrets = require('./secrets.js');
 
 /** Läuft gerade eine Kopplung? Dann kennt sie sich hier selbst wieder. */
@@ -24,7 +25,7 @@ let pending = null;
  */
 function clientName() {
   const host = os.hostname().replace(/\.local$/i, '');
-  return `DaVinci Resolve auf ${host}`;
+  return t('DaVinci Resolve auf {rechner}', { rechner: host });
 }
 
 /**
@@ -39,7 +40,7 @@ async function start() {
   );
 
   if (!data || !data.deviceCode || !data.userCode) {
-    throw new api.KlappeError('Der Server hat keine Kopplung angelegt.');
+    throw new api.KlappeError(t('Der Server hat keine Kopplung angelegt.'));
   }
 
   pending = {
@@ -68,16 +69,16 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
  * die Leitung.
  */
 async function waitForToken(onTick) {
-  if (!pending) throw new api.KlappeError('Es läuft keine Kopplung.');
+  if (!pending) throw new api.KlappeError(t('Es läuft keine Kopplung.'));
   const session = pending;
 
   for (;;) {
-    if (session.cancelled) throw new api.KlappeError('Die Kopplung wurde abgebrochen.');
+    if (session.cancelled) throw new api.KlappeError(t('Die Kopplung wurde abgebrochen.'));
 
     if (Date.now() > session.expiresAt) {
       pending = null;
       throw new api.KlappeError(
-        'Die Kopplung ist abgelaufen – sie gilt zehn Minuten. Bitte noch einmal starten.',
+        t('Die Kopplung ist abgelaufen – sie gilt zehn Minuten. Bitte noch einmal starten.'),
       );
     }
 
@@ -90,14 +91,16 @@ async function waitForToken(onTick) {
     if (response.status === 403) {
       pending = null;
       throw new api.KlappeError(
-        'Die Kopplung wurde abgelehnt – oder der externe API-Zugriff ist auf dem Server abgeschaltet.',
+        t(
+          'Die Kopplung wurde abgelehnt – oder der externe API-Zugriff ist auf dem Server abgeschaltet.',
+        ),
         { status: 403, code: 'abgelehnt' },
       );
     }
     if (response.status === 400 || response.status === 404) {
       pending = null;
       throw new api.KlappeError(
-        'Die Kopplung ist abgelaufen oder unbekannt. Bitte noch einmal starten.',
+        t('Die Kopplung ist abgelaufen oder unbekannt. Bitte noch einmal starten.'),
         { status: response.status, code: 'abgelaufen' },
       );
     }
