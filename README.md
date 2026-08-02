@@ -191,8 +191,20 @@ Nacheinander wäre der Schnittplatz doppelt so lange belegt – ein UHD-Master
 
 Am Ende wird die Kopie auf **genau den Namen** umbenannt, unter dem der Kunde
 die Fassung herunterlädt (`260802_Kunde_Kampagne_Teaser_v3_1080p25.mov`) – auf
-`downloadFilename` aus dem `VersionDto`, dieselbe Quelle wie im Browser. Der
-Name des Zwischen-Masters
+`downloadFilename` aus dem `VersionDto`, dieselbe Quelle wie im Browser.
+
+Zwei Stücke des Namens entscheidet aber das Plugin selbst, weil sie hier
+entschieden werden und nicht dort:
+
+- **Das Datum** ist der Tag des Ausspielens. Es geht als `fileDate` schon beim
+  Anlegen der Sitzung mit – so steht in beiden Namen dasselbe.
+- **`_Vorschau`** richtet sich nach dem Endfassungs-Haken im Dialog, nicht
+  danach, ob der Server ihn schon übernommen hat. Der Haken ist eine lokale
+  Entscheidung; die Kopie soll nicht darauf warten, ob eine nachgereichte
+  Anfrage durchkam. Was in Klappe steht, wird trotzdem gesetzt – klappt das
+  nicht, steht es als Warnung im Ergebnis, und die Kopie stimmt trotzdem.
+
+Der Name des Zwischen-Masters
 hat im Projektordner nichts zu suchen. Er steht aber erst fest, wenn die
 Fassung verarbeitet ist; deshalb erst kopieren, dann umbenennen.
 

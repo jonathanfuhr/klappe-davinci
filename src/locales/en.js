@@ -147,8 +147,8 @@ module.exports = {
   'Gilt für das ganze Video, also auch für die schon vorhandenen Fassungen.':
     'Applies to the whole video, including the versions already there.',
   'Endfassungs-Haken nicht gesetzt: {grund}': 'Final-version flag not set: {grund}',
-  'Der Endfassungs-Haken hat nicht gegriffen – die Fassung gilt weiter als Vorschau.':
-    'The final-version flag did not take – the version still counts as a preview.',
+  'Der Endfassungs-Haken hat in Klappe nicht gegriffen – die Fassung gilt dort weiter als Vorschau.':
+    'The final-version flag did not take in Klappe – the version still counts as a preview there.',
   'Plugin {version}, installiert am {zeitpunkt}': 'Plugin {version}, installed on {zeitpunkt}',
   'KI-Kennzeichnung nicht gesetzt: {grund}': 'AI marking not set: {grund}',
   'z. B. Farbkorrektur': 'e.g. Colour grade',

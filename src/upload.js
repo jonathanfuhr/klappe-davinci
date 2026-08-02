@@ -173,6 +173,13 @@ function renderDir() {
   return base;
 }
 
+/** Heute als `JJJJ-MM-TT`, in Ortszeit – nicht UTC: Ein Upload um 23:30 gehört zu heute. */
+function heute() {
+  const jetzt = new Date();
+  const zwei = (wert) => String(wert).padStart(2, '0');
+  return `${jetzt.getFullYear()}-${zwei(jetzt.getMonth() + 1)}-${zwei(jetzt.getDate())}`;
+}
+
 /** Aus „Teaser Kampagne" wird „Teaser_Kampagne" – Resolve mag keine Sonderzeichen im Namen. */
 function safeName(value) {
   return (
@@ -356,7 +363,9 @@ async function run(options, onProgress = () => {}) {
       filename: path.basename(rendered.path),
       sizeBytes: rendered.size,
       label: options.label || '',
-      fileDate: options.fileDate || '',
+      // Ohne Angabe sucht sich der Server ein Datum – mit Angabe steht in
+      // beiden Namen dasselbe, und zwar der Tag des Ausspielens.
+      fileDate: options.fileDate || heute(),
       versionNumber: Number.isFinite(options.versionNumber) ? options.versionNumber : undefined,
       internal,
       replace: Boolean(options.replace),
@@ -439,16 +448,16 @@ async function run(options, onProgress = () => {}) {
 
     if (options.isFinal) {
       try {
-        // Die Antwort ist die aktualisierte Fassung – und mit ihr der neue
-        // `downloadFilename`. Genau darauf wird gleich die Zweitablage
-        // umbenannt.
         version = await markiereFassung(version.id, { isFinal: true });
         // Nachsehen statt annehmen: Ein `200` heißt nur, dass die Anfrage
         // durchging. Ob der Haken sitzt, steht in der Antwort – und daran
         // hängt auch der Dateiname der Zweitablage.
+        // Nachsehen statt annehmen: Ein `200` heißt nur, dass die Anfrage
+        // durchging. Betroffen ist nur die Fassung in Klappe – die lokale
+        // Kopie trägt den Haken ohnehin schon im Namen.
         if (!version?.isFinal) {
           nachtraege.push(
-            t('Der Endfassungs-Haken hat nicht gegriffen – die Fassung gilt weiter als Vorschau.'),
+            t('Der Endfassungs-Haken hat in Klappe nicht gegriffen – die Fassung gilt dort weiter als Vorschau.'),
           );
         }
       } catch (fehler) {
@@ -474,10 +483,15 @@ async function run(options, onProgress = () => {}) {
       ablage = await kopie;
       kopie = null;
       if (ablage.ok) {
-        // Erst **jetzt** steht der Name fest: Ohne den Endfassungs-Haken hängt
-        // Klappe ein `_Vorschau` an, mit ihm nicht. Vor dem Nachtrag umbenannt
-        // trüge die Kopie den falschen Namen.
-        ablage.path = archive.benenneUm(ablage.path, version.downloadFilename);
+        // Der Name kommt vom Server – bis auf das eine Stück, das hier im
+        // Dialog entschieden wurde: `_Vorschau`. Ob der Haken serverseitig
+        // schon gesetzt ist, geht die lokale Kopie nichts an; sie soll nicht
+        // davon abhängen, ob eine nachgereichte Anfrage durchkam.
+        const name = archive.endfassungImNamen(
+          version.downloadFilename,
+          Boolean(options.isFinal),
+        );
+        ablage.path = archive.benenneUm(ablage.path, name);
       }
     }
 

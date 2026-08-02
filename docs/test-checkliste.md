@@ -141,8 +141,10 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Nach dem Upload liegt die Datei dort unter **genau dem Namen, unter dem
       der Kunde sie herunterlädt** (`JJMMTT_Kunde_Projekt_Video_vN_1080p25.mov`),
       nicht unter dem Zwischennamen
-- [ ] Mit Endfassungs-Haken fehlt das `_Vorschau` auch in der Zweitablage –
-      umbenannt wird **nach** dem Setzen des Hakens
+- [ ] Mit Endfassungs-Haken fehlt das `_Vorschau` in der Zweitablage, ohne
+      Haken steht es drin – **unabhängig davon**, ob der Nachtrag in Klappe
+      durchkam (im Zweifel: Server währenddessen abschalten)
+- [ ] Das Datum im Namen ist der Tag des Ausspielens, in beiden Namen dasselbe
 - [ ] Zielordner mit gleichnamiger Datei → die Kopie bekommt `-2`, das
       vorhandene bleibt unangetastet
 - [ ] Upload mittendrin abbrechen → im Zielordner liegt **kein** Bruchstück

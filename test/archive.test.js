@@ -73,6 +73,39 @@ describe('Kopieren', () => {
   });
 });
 
+describe('Endfassung im Dateinamen – lokal entschieden', () => {
+  // Der Haken ist eine Entscheidung im Dialog. Ob der Server sie schon
+  // übernommen hat, darf die lokale Kopie nicht betreffen.
+  const mitVorschau = '260802_Kunde_Kampagne_Teaser_v3_Vorschau_1080p25.mov';
+  const ohneVorschau = '260802_Kunde_Kampagne_Teaser_v3_1080p25.mov';
+
+  it('nimmt „Vorschau" heraus, wenn die Endfassung angehakt ist', () => {
+    expect(archive.endfassungImNamen(mitVorschau, true)).toBe(ohneVorschau);
+  });
+
+  it('setzt „Vorschau" ein, wenn sie nicht angehakt ist', () => {
+    expect(archive.endfassungImNamen(ohneVorschau, false)).toBe(mitVorschau);
+  });
+
+  it('lässt einen schon richtigen Namen in Ruhe', () => {
+    expect(archive.endfassungImNamen(mitVorschau, false)).toBe(mitVorschau);
+    expect(archive.endfassungImNamen(ohneVorschau, true)).toBe(ohneVorschau);
+  });
+
+  it('setzt es vor die Auflösung, nicht ans Ende', () => {
+    // Dieselbe Stelle wie in Klappe – sonst hieße dieselbe Fassung lokal
+    // anders als beim Download.
+    expect(archive.endfassungImNamen('260802_Teaser_v1_2160p30.mov', false)).toBe(
+      '260802_Teaser_v1_Vorschau_2160p30.mov',
+    );
+  });
+
+  it('kommt auch ohne Endung und ohne Unterstriche zurecht', () => {
+    expect(archive.endfassungImNamen('Teaser', false)).toBe('Teaser_Vorschau');
+    expect(archive.endfassungImNamen('Teaser_Vorschau', true)).toBe('Teaser');
+  });
+});
+
 describe('Umbenennen auf den Hausnamen', () => {
   it('gibt der Kopie den Namen, unter dem Klappe die Fassung führt', () => {
     const ordner = path.join(tempDir, 'umbenennen');

@@ -125,6 +125,35 @@ function kopiere(quelle, ziel, { onProgress, signal, blockBytes = 8 * 1024 * 102
 }
 
 /**
+ * Den Endfassungs-Teil des Namens **lokal** setzen.
+ *
+ * Klappe hängt an eine Fassung ohne Endfassungs-Haken ein `_Vorschau` an. Ob
+ * der Haken gilt, entscheidet aber der Mensch im Dialog – nicht die Frage, ob
+ * eine nachgereichte Anfrage schon durchgekommen ist. Die lokale Kopie soll
+ * deshalb nicht darauf warten: Wir nehmen den Namen vom Server und richten
+ * genau dieses eine Stück nach dem Haken.
+ *
+ * Eingesetzt wird, wo Klappe es auch tut – hinter der Fassungsnummer und vor
+ * der Auflösung.
+ */
+function endfassungImNamen(dateiname, istEndfassung) {
+  const punkt = dateiname.lastIndexOf('.');
+  const stamm = punkt > 0 ? dateiname.slice(0, punkt) : dateiname;
+  const endung = punkt > 0 ? dateiname.slice(punkt) : '';
+
+  const ohne = stamm.replace(/_Vorschau(?=_|$)/, '');
+  if (istEndfassung) return `${ohne}${endung}`;
+  if (ohne !== stamm) return `${stamm}${endung}`;
+
+  // Fehlt es, gehört es vor das letzte Stück (die Auflösung). Gibt es keins,
+  // ans Ende – dort steht es immer noch richtig.
+  const teile = ohne.split('_');
+  if (teile.length > 1) teile.splice(teile.length - 1, 0, 'Vorschau');
+  else teile.push('Vorschau');
+  return `${teile.join('_')}${endung}`;
+}
+
+/**
  * Die Kopie am Ende auf den Namen bringen, unter dem Klappe die Fassung führt.
  *
  * Der Zwischen-Master heißt `Teaser_20260802071200.mov` – ein Name, der im
@@ -151,4 +180,4 @@ function benenneUm(pfad, neuerName) {
   }
 }
 
-module.exports = { freierName, kopiere, benenneUm };
+module.exports = { freierName, kopiere, benenneUm, endfassungImNamen };
