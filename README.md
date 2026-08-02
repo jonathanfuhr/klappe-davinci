@@ -176,8 +176,10 @@ Datei zwei Wege **gleichzeitig**: hoch nach Klappe und hinüber in die Ablage.
 Nacheinander wäre der Schnittplatz doppelt so lange belegt – ein UHD-Master
 über ein Netzlaufwerk zu kopieren dauert etwa so lange wie das Hochladen.
 
-Am Ende wird die Kopie auf den Namen umbenannt, unter dem Klappe die Fassung
-führt (`260802_Kunde_Teaser_v3_1080p25.mov`) – der Name des Zwischen-Masters
+Am Ende wird die Kopie auf **genau den Namen** umbenannt, unter dem der Kunde
+die Fassung herunterlädt (`260802_Kunde_Kampagne_Teaser_v3_1080p25.mov`) – auf
+`downloadFilename` aus dem `VersionDto`, dieselbe Quelle wie im Browser. Der
+Name des Zwischen-Masters
 hat im Projektordner nichts zu suchen. Er steht aber erst fest, wenn die
 Fassung verarbeitet ist; deshalb erst kopieren, dann umbenennen.
 
@@ -229,6 +231,20 @@ zurückbleiben. Dann hilft **Zeichnungen einblenden** im Panel.
 Ab Werk lädt das Panel **immer intern** hoch: So geht nichts zum Kunden, bevor
 jemand daraufgeschaut hat. Der Erfolgsdialog sagt das auch – neben dem Link
 steht „Diese Fassung ist intern – der Kunde sieht sie noch nicht."
+
+**Endfassung** und **KI-Kennzeichnung** stehen als Haken im Dialog. Beides
+lässt sich beim Anlegen der Upload-Sitzung nicht mitgeben – `isFinal` gehört an
+die Fassung, die erst mit dem letzten Block entsteht, und die KI-Kennzeichnung
+hängt am **Video**. Das Panel trägt sie deshalb nach, sobald die Fassung fertig
+ist. Scheitert einer der beiden Nachträge, ist die Fassung trotzdem oben und die
+Warnung steht im Ergebnis.
+
+> Der Endfassungs-Haken steht **vor** dem Umbenennen der Zweitablage: Ohne ihn
+> hängt Klappe ein `_Vorschau` an den Dateinamen. Umgekehrt trüge die Kopie im
+> Projektordner einen Namen, den es in Klappe nie gab.
+>
+> Die KI-Kennzeichnung gilt fürs ganze Video, also auch für die schon
+> vorhandenen Fassungen – das steht so im Dialog.
 
 > **Freigeben gibt es im Plugin bewusst nicht.** Eine Fassung freizugeben heißt,
 > sie dem Kunden zu zeigen – das gehört ans Ende einer Runde, in der jemand den

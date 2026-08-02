@@ -173,7 +173,7 @@ async function uploadFile({ location, filePath, sizeBytes, onProgress, signal })
     }
 
     if (response.status < 200 || response.status >= 300) {
-      throw api.toError(response, { pathname: location });
+      throw api.toError(response, { pathname: location, method: 'PATCH' });
     }
 
     retries = 0;

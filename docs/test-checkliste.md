@@ -104,6 +104,15 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Interne Runde im Server abschalten → weder Haken noch interne Fassung,
       der Hinweis nennt den Grund
 - [ ] Mit einem Gast-Token ist der Haken nicht da
+- [ ] **Endfassung** angehakt → die Fassung trägt den Haken in Klappe, und der
+      Download-Dateiname hat **kein** `_Vorschau`
+- [ ] Ohne den Haken steht `_Vorschau` im Dateinamen – auch in der Zweitablage
+- [ ] **KI-Inhalte kennzeichnen** erscheint nur, wenn die Kennzeichnung im
+      Workspace eingeschaltet ist; die Arten stehen zur Auswahl
+- [ ] Nach dem Upload trägt das **Video** (nicht nur die Fassung) den Haken und
+      die gewählten Arten
+- [ ] Scheitert einer der beiden Nachträge, gilt der Upload trotzdem als
+      gelungen und die Warnung steht im Ergebnis
 - [ ] Der Zwischen-Master ist nach dem Upload aus dem Renderordner verschwunden
 
 ### Zusätzlich lokal ablegen
@@ -112,8 +121,11 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Haken an ohne Ordner → Meldung statt Start
 - [ ] Haken an mit Ordner: Die Kopie läuft **gleichzeitig** mit dem Upload
       (zweite Zeile unter dem Fortschrittsbalken zählt mit)
-- [ ] Nach dem Upload liegt die Datei dort unter dem Klappe-Dateinamen
-      (`JJMMTT_Kunde_Video_vN_1080p25.mov`), nicht unter dem Zwischennamen
+- [ ] Nach dem Upload liegt die Datei dort unter **genau dem Namen, unter dem
+      der Kunde sie herunterlädt** (`JJMMTT_Kunde_Projekt_Video_vN_1080p25.mov`),
+      nicht unter dem Zwischennamen
+- [ ] Mit Endfassungs-Haken fehlt das `_Vorschau` auch in der Zweitablage –
+      umbenannt wird **nach** dem Setzen des Hakens
 - [ ] Zielordner mit gleichnamiger Datei → die Kopie bekommt `-2`, das
       vorhandene bleibt unangetastet
 - [ ] Upload mittendrin abbrechen → im Zielordner liegt **kein** Bruchstück

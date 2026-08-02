@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('klappe', {
   createVideo: (projectId, name, description) =>
     call('klappe:targets:createVideo', projectId, name, description),
   versionSettings: () => call('klappe:targets:settings'),
+  aiKinds: () => call('klappe:targets:aiKinds'),
   uploadRun: (options) => call('klappe:upload:run', options),
   uploadAbort: () => call('klappe:upload:abort'),
   rendersStatus: () => call('klappe:renders:status'),

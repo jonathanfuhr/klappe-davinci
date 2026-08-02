@@ -306,6 +306,7 @@ function registerHandlers() {
     upload.createVideo(projectId, name, description),
   );
   handle('klappe:targets:settings', async () => upload.versionSettings());
+  handle('klappe:targets:aiKinds', async () => upload.aiKinds());
 
   handle('klappe:upload:run', async (options) =>
     upload.run(options, (progress) => emit('upload:progress', progress)),

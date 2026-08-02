@@ -141,6 +141,13 @@ module.exports = {
   'Neue Fassung (Nummer zählt Klappe weiter)': 'New version (Klappe counts on)',
   intern: 'internal',
   'Beschriftung (optional)': 'Label (optional)',
+  Endfassung: 'Final version',
+  'KI-Inhalte kennzeichnen (Art. 50 EU AI Act)':
+    'Mark AI content (Art. 50 EU AI Act)',
+  'Gilt für das ganze Video, also auch für die schon vorhandenen Fassungen.':
+    'Applies to the whole video, including the versions already there.',
+  'Endfassungs-Haken nicht gesetzt: {grund}': 'Final-version flag not set: {grund}',
+  'KI-Kennzeichnung nicht gesetzt: {grund}': 'AI marking not set: {grund}',
   'z. B. Farbkorrektur': 'e.g. Colour grade',
   'Als interne Fassung hochladen (erst nach Freigabe für Gäste sichtbar)':
     'Upload as an internal version (visible to guests only after release)',
@@ -301,7 +308,8 @@ module.exports = {
     'Not found – or not visible to this account.',
   'Zu viele Anfragen. Klappe bittet um {sekunden} Sekunden Pause.':
     'Too many requests. Klappe asks for a pause of {sekunden} seconds.',
-  'Der Server meldet einen Fehler ({status}).': 'The server reports an error ({status}).',
+  'Der Server meldet einen Fehler ({status}) bei {stelle}.':
+    'The server reports an error ({status}) at {stelle}.',
   'Die Anfrage an {pfad} schlug fehl ({status}).': 'The request to {pfad} failed ({status}).',
 
   /* ---------------------------------------------------------- Kopplung */

@@ -63,6 +63,49 @@ async function createVideo(projectId, name, description) {
 }
 
 /**
+ * Der Katalog der KI-Arten und der globale Schalter (Server-Phase 24).
+ *
+ * Ist die Kennzeichnung im Workspace abgeschaltet, gehört die Auswahl gar nicht
+ * in den Dialog – dieselbe Regel wie bei den internen Fassungen: erfragen statt
+ * raten. Ein Gastzugang darf die Route nicht.
+ */
+async function aiKinds() {
+  try {
+    const data = await api.get('/v1/ai-kinds');
+    return {
+      enabled: Boolean(data?.enabled),
+      kinds: Array.isArray(data?.kinds) ? data.kinds : [],
+    };
+  } catch (error) {
+    if (error.status === 403 || error.status === 404) return { enabled: false, kinds: [] };
+    throw error;
+  }
+}
+
+/**
+ * Endfassungs-Haken setzen.
+ *
+ * Beim Anlegen der Upload-Sitzung geht das nicht – `isFinal` gehört an die
+ * Fassung, und die entsteht erst, wenn die Datei vollständig da ist. Also
+ * hinterher.
+ */
+async function markiereFassung(versionId, { isFinal }) {
+  return api.patch(`/v1/versions/${versionId}`, { isFinal: Boolean(isFinal) });
+}
+
+/**
+ * KI-Kennzeichnung setzen. Sie hängt am **Video**, nicht an der Fassung –
+ * sie gilt also für alle Fassungen, auch die schon vorhandenen. Das gehört im
+ * Dialog dazugesagt.
+ */
+async function markiereVideo(videoId, { aiContent, aiKindIds }) {
+  return api.patch(`/v1/videos/${videoId}`, {
+    aiContent: Boolean(aiContent),
+    aiKindIds: Array.isArray(aiKindIds) ? aiKindIds : [],
+  });
+}
+
+/**
  * Die Vorgabe des Hauses für interne Fassungen (Phase 28) – abfragen statt
  * raten.
  *
@@ -380,7 +423,7 @@ async function run(options, onProgress = () => {}) {
 
     /* 4. Auf die Verarbeitung warten ------------------------------------ */
     onProgress({ phase: 'verify', percent: 0, text: t('Klappe verarbeitet die Fassung …') });
-    const version = await waitForVersion(versionId, signal, (percent) =>
+    let version = await waitForVersion(versionId, signal, (percent) =>
       onProgress({
         phase: 'verify',
         percent,
@@ -388,14 +431,44 @@ async function run(options, onProgress = () => {}) {
       }),
     );
 
-    /* 4b. Auf die Zweitablage warten und ihr den Hausnamen geben ---------- */
+    /* 4b. Nachträge an Fassung und Video --------------------------------
+       Beides geht erst, wenn die Fassung existiert. Und beides ist Beiwerk:
+       Scheitert es, ist die Fassung trotzdem oben – das gehört als Warnung
+       gemeldet, nicht als gescheiterter Upload. */
+    const nachtraege = [];
+
+    if (options.isFinal) {
+      try {
+        // Die Antwort ist die aktualisierte Fassung – und mit ihr der neue
+        // `downloadFilename`. Genau darauf wird gleich die Zweitablage
+        // umbenannt.
+        version = await markiereFassung(version.id, { isFinal: true });
+      } catch (fehler) {
+        nachtraege.push(t('Endfassungs-Haken nicht gesetzt: {grund}', { grund: fehler.message }));
+      }
+    }
+
+    if (options.aiContent !== undefined) {
+      try {
+        await markiereVideo(options.videoId, {
+          aiContent: options.aiContent,
+          aiKindIds: options.aiKindIds,
+        });
+      } catch (fehler) {
+        nachtraege.push(t('KI-Kennzeichnung nicht gesetzt: {grund}', { grund: fehler.message }));
+      }
+    }
+
+    /* 4c. Auf die Zweitablage warten und ihr den Hausnamen geben ---------- */
     let ablage = null;
     if (kopie) {
       onProgress({ phase: 'kopie', percent: 100, text: t('Zweitablage wird abgeschlossen …') });
       ablage = await kopie;
       kopie = null;
       if (ablage.ok) {
-        // Erst jetzt steht fest, wie Klappe die Fassung nennt.
+        // Erst **jetzt** steht der Name fest: Ohne den Endfassungs-Haken hängt
+        // Klappe ein `_Vorschau` an, mit ihm nicht. Vor dem Nachtrag umbenannt
+        // trüge die Kopie den falschen Namen.
         ablage.path = archive.benenneUm(ablage.path, version.downloadFilename);
       }
     }
@@ -423,6 +496,7 @@ async function run(options, onProgress = () => {}) {
       version,
       entry,
       ablage,
+      nachtraege,
       webUrl: version.webUrl ? `${api.baseUrl()}${version.webUrl}` : '',
       file: { path: rendered.path, size: rendered.size },
     };
@@ -555,6 +629,9 @@ module.exports = {
   createVideo,
   versionSettings,
   serverVersionSettings,
+  aiKinds,
+  markiereFassung,
+  markiereVideo,
   internalEntscheidung,
   run,
   laeuft,

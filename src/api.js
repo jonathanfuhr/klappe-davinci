@@ -165,7 +165,8 @@ function errorDetail(response) {
 }
 
 /** Aus einer Fehlerantwort einen sprechenden KlappeError machen. */
-function toError(response, { pathname = '' } = {}) {
+function toError(response, { pathname = '', method = '' } = {}) {
+  const stelle = [method, pathname].filter(Boolean).join(' ');
   const detail = errorDetail(response);
   const status = response.status;
 
@@ -204,15 +205,20 @@ function toError(response, { pathname = '' } = {}) {
     );
   }
   if (status >= 500) {
+    // Die Stelle gehört in die Meldung: Ein „Internal Server Error" ohne Route
+    // ist beim Suchen wertlos – man weiß nicht einmal, welcher Schritt es war.
     return new KlappeError(
-      `${t('Der Server meldet einen Fehler ({status}).', { status })} ${detail}`.trim(),
-      { status, code: 'server', detail },
+      `${t('Der Server meldet einen Fehler ({status}) bei {stelle}.', {
+        status,
+        stelle: stelle || '?',
+      })} ${detail}`.trim(),
+      { status, code: 'server', detail, stelle },
     );
   }
 
   return new KlappeError(
-    detail || t('Die Anfrage an {pfad} schlug fehl ({status}).', { pfad: pathname, status }),
-    { status, code: 'abgelehnt', detail },
+    detail || t('Die Anfrage an {pfad} schlug fehl ({status}).', { pfad: stelle || pathname, status }),
+    { status, code: 'abgelehnt', detail, stelle },
   );
 }
 
@@ -264,7 +270,7 @@ async function request(method, pathname, options = {}) {
 
   const ok = response.status >= 200 && response.status < 300;
   if (!ok && !allowStatus.includes(response.status)) {
-    throw toError(response, { pathname });
+    throw toError(response, { pathname, method });
   }
 
   if (expectBinary || response.status === 204 || response.body.length === 0) {

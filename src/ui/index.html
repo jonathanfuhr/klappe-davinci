@@ -169,6 +169,24 @@
             <input id="ziel-label" type="text" placeholder="z. B. Farbkorrektur" />
           </label>
 
+          <label class="haken">
+            <input id="ziel-final" type="checkbox" />
+            <span>Endfassung</span>
+          </label>
+
+          <!-- Die KI-Kennzeichnung hängt am Video, nicht an der Fassung –
+               deshalb der Hinweis darunter. -->
+          <div id="ki-zeile" class="versteckt">
+            <label class="haken">
+              <input id="ziel-ki" type="checkbox" />
+              <span>KI-Inhalte kennzeichnen (Art. 50 EU AI Act)</span>
+            </label>
+            <div id="ki-arten" class="hakenliste versteckt"></div>
+            <p class="klein">
+              Gilt für das ganze Video, also auch für die schon vorhandenen Fassungen.
+            </p>
+          </div>
+
           <label id="intern-zeile" class="haken versteckt">
             <input id="ziel-intern" type="checkbox" />
             <span>Als interne Fassung hochladen (erst nach Freigabe für Gäste sichtbar)</span>

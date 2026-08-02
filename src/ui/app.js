@@ -104,6 +104,8 @@ const zustand = {
   kommentare: [],
   zahlen: { open: 0, resolved: 0, total: 0 },
   fassungseinstellungen: { internalEnabled: false, internalByDefault: false },
+  /** Katalog der KI-Arten und der globale Schalter des Workspace. */
+  kiArten: { enabled: false, kinds: [] },
   /** Ist die Overlay-Spur gerade sichtbar? Nach dem Einfügen ja. */
   overlaysSichtbar: true,
   /** Welche Sprache gilt, und woher sie kommt. */
@@ -678,6 +680,12 @@ async function ladeHochladen() {
     zeichneInternZeile(einstellungen);
   }
 
+  const ki = await aufruf(window.klappe.aiKinds(), { still: true });
+  if (ki) {
+    zustand.kiArten = ki;
+    zeichneKiZeile();
+  }
+
   if (projekteGeladen) return;
   const projekte = await fuelleProjekte(el('ziel-projekt'), zustand.mapping?.projectId, {
     mitNeu: true,
@@ -686,6 +694,31 @@ async function ladeHochladen() {
   projekteGeladen = true;
 
   await ladeVideosFuerUpload(el('ziel-projekt').value);
+}
+
+/**
+ * Die KI-Kennzeichnung. Ist sie im Workspace abgeschaltet, gehört sie gar nicht
+ * in den Dialog – dieselbe Regel wie bei den internen Fassungen: erfragen statt
+ * raten.
+ */
+function zeichneKiZeile() {
+  const { enabled, kinds } = zustand.kiArten;
+  el('ki-zeile').classList.toggle('versteckt', !enabled);
+  if (!enabled) return;
+
+  const liste = el('ki-arten');
+  if (liste.childElementCount === 0) {
+    for (const art of kinds) {
+      const zeile = document.createElement('label');
+      const haken = document.createElement('input');
+      haken.type = 'checkbox';
+      haken.value = art.id;
+      zeile.appendChild(haken);
+      zeile.appendChild(document.createTextNode(art.name));
+      liste.appendChild(zeile);
+    }
+  }
+  liste.classList.toggle('versteckt', !el('ziel-ki').checked);
 }
 
 /**
@@ -801,6 +834,11 @@ async function ermittleZiel() {
     internal: zustand.fassungseinstellungen.internalEnabled && el('ziel-intern').checked,
     label: el('ziel-label').value.trim(),
     preset: el('preset').value,
+    isFinal: el('ziel-final').checked,
+    // `undefined` heißt „nicht anfassen": Ist die Kennzeichnung im Workspace
+    // abgeschaltet, soll das Plugin das Video nicht stillschweigend ändern.
+    aiContent: zustand.kiArten.enabled ? el('ziel-ki').checked : undefined,
+    aiKindIds: [...el('ki-arten').querySelectorAll('input:checked')].map((h) => h.value),
     archiveDir: el('ziel-ablage-an').checked ? el('ziel-ablage').value.trim() : '',
     wholeTimeline: el('bereich').value === 'ganz',
   };
@@ -877,6 +915,10 @@ function zeigeUploadErgebnis(ergebnis) {
       ),
     );
     karte.appendChild(warnung);
+  }
+
+  for (const hinweis of ergebnis.nachtraege || []) {
+    karte.appendChild(textKnoten('div', 'warnung', hinweis));
   }
 
   if (ergebnis.ablage) {
@@ -1402,6 +1444,9 @@ function verdrahte() {
   );
   el('ziel-video').addEventListener('change', ladeFassungenFuerUpload);
   el('ziel-fassung').addEventListener('change', zeigeErsetzenWarnung);
+  el('ziel-ki').addEventListener('change', () => {
+    el('ki-arten').classList.toggle('versteckt', !el('ziel-ki').checked);
+  });
   el('ziel-ablage-an').addEventListener('change', () => {
     zeigeAblageZeile();
     el('ziel-ablage').dataset.beruehrt = 'ja';
