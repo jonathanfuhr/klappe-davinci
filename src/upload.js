@@ -523,11 +523,6 @@ async function waitForVersion(versionId, signal, onProgress) {
   }
 }
 
-/** Interne Fassung freigeben – jeder aus dem Team darf das. */
-async function release(versionId) {
-  return api.post(`/v1/versions/${versionId}/freigeben`, undefined);
-}
-
 function formatBytes(bytes) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let value = Number(bytes) || 0;
@@ -552,7 +547,6 @@ module.exports = {
   laeuft,
   abort,
   abbrechenUndWarten,
-  release,
   waitForVersion,
   formatBytes,
   safeName,

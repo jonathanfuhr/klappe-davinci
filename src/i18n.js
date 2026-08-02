@@ -83,7 +83,7 @@ function einsetzen(text, werte) {
 /**
  * Übersetzen und einsetzen.
  *
- * `t('Fassung {nummer} freigeben?', { nummer: 3 })`
+ * `t('Fassung {nummer}', { nummer: 3 })`
  */
 function t(deutsch, werte) {
   const katalog = KATALOGE[aktuell];

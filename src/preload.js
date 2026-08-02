@@ -39,7 +39,6 @@ contextBridge.exposeInMainWorld('klappe', {
   uploadAbort: () => call('klappe:upload:abort'),
   rendersStatus: () => call('klappe:renders:status'),
   rendersCleanup: (alles) => call('klappe:renders:cleanup', alles),
-  releaseVersion: (versionId) => call('klappe:version:release', versionId),
 
   // Sidecar
   mappingGet: (timelineId) => call('klappe:mapping:get', timelineId),

@@ -75,7 +75,7 @@ describe('Übersetzen', () => {
 
   it('übersetzt und setzt benannte Platzhalter ein', () => {
     i18n.setLocale('en');
-    expect(i18n.t('Fassung {nummer} freigeben?', { nummer: 3 })).toBe('Release version 3?');
+    expect(i18n.t('Fassung {nummer}', { nummer: 3 })).toBe('Version 3');
   });
 
   it('lässt einen unbekannten Satz auf Deutsch stehen, statt ihn zu verschlucken', () => {

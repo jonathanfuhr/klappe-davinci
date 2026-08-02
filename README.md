@@ -221,15 +221,15 @@ zurückbleiben. Dann hilft **Zeichnungen einblenden** im Panel.
 
 Ab Werk lädt das Panel **immer intern** hoch: So geht nichts zum Kunden, bevor
 jemand daraufgeschaut hat. Der Erfolgsdialog sagt das auch – neben dem Link
-steht „Diese Fassung ist intern – der Kunde sieht sie noch nicht" und der
-Knopf **Reviewen und freigeben**.
+steht „Diese Fassung ist intern – der Kunde sieht sie noch nicht."
 
-Der Erfolgsdialog ist nach dieser Reihenfolge gebaut: **Link fürs Review
-kopieren** ist bei einer internen Fassung der betonte Knopf – der geht an die
-Kollegen, solange der Kunde die Fassung noch nicht sieht. **Reviewen und
-freigeben** steht daneben, aber leiser: Es ist der Schritt *danach*, und zwei
-gleich laute Knöpfe laden zum Falschen ein. Bei einer nicht-internen Fassung
-ist „Im Browser öffnen" wieder der betonte.
+> **Freigeben gibt es im Plugin bewusst nicht.** Eine Fassung freizugeben heißt,
+> sie dem Kunden zu zeigen – das gehört ans Ende einer Runde, in der jemand den
+> Film wirklich angesehen hat, nicht an das Ende eines Uploads. Ein Knopf
+> direkt neben „fertig hochgeladen" lädt genau dazu ein, ihn im Schwung
+> mitzudrücken. Das Panel gibt deshalb nur den Weg dorthin: **Im Browser
+> öffnen** zum Ansehen und **Link kopieren** für die Kollegen. Freigegeben wird
+> danach in Klappe.
 
 Zwei Dinge können das ändern:
 

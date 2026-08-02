@@ -171,24 +171,14 @@ module.exports = {
     'Cancellation requested – the rendered file stays, so a second attempt need not render again.',
   'Fassung {nummer} ist da ({stand}).': 'Version {nummer} has arrived ({stand}).',
   'fertig verarbeitet': 'fully processed',
-  'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Bitte reviewen und freigeben, damit er sie bekommt.':
-    'This version is internal – the client cannot see it yet. Please review and release it so they get it.',
+  'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Erst ansehen oder den Link an die Kollegen geben; freigegeben wird sie danach in Klappe.':
+    'This version is internal – the client cannot see it yet. Watch it or send the link to your colleagues first; releasing it happens afterwards, in Klappe.',
   'Im Browser öffnen': 'Open in browser',
   'Link kopieren': 'Copy link',
-  'Link fürs Review kopieren': 'Copy link for review',
   Kopiert: 'Copied',
   'Link kopiert.': 'Link copied.',
   'Link kopiert – die Kollegen sehen die Fassung, der Kunde noch nicht.':
     'Link copied – your colleagues can see the version, the client cannot yet.',
-  'Reviewen und freigeben': 'Review and release',
-  'Macht die interne Fassung für den Kunden sichtbar':
-    'Makes the internal version visible to the client',
-  'Fassung {nummer} freigeben?': 'Release version {nummer}?',
-  'Danach sieht sie jeder, der über einen Freigabe-Link Zugang zum Video hat – auch der Kunde.':
-    'Afterwards everyone with a share link to the video can see it – the client included.',
-  'Fassung ist freigegeben – der Kunde sieht sie jetzt.':
-    'Version is released – the client can see it now.',
-  Freigegeben: 'Released',
   'Upload fertig.': 'Upload finished.',
 
   /* --------------------------------------------------------- Einstellungen */

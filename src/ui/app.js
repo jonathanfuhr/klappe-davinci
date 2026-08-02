@@ -838,7 +838,7 @@ function zeigeUploadErgebnis(ergebnis) {
       'div',
       'warnung',
       t(
-        'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Bitte reviewen und freigeben, damit er sie bekommt.',
+        'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Erst ansehen oder den Link an die Kollegen geben; freigegeben wird sie danach in Klappe.',
       ),
     );
     karte.appendChild(warnung);
@@ -858,29 +858,21 @@ function zeigeUploadErgebnis(ergebnis) {
 
   const knoepfe = textKnoten('div', 'werkzeuge');
 
-  // Betonung nach dem, was als Nächstes dran ist: Bei einer internen Fassung
-  // ist das der Link an die Kollegen, **nicht** das Freigeben an den Kunden.
-  // Zwei gleich laute Knöpfe nebeneinander laden zum Falschen ein.
   if (ergebnis.webUrl) {
-    const oeffnen = textKnoten('button', fassung.internal ? '' : 'wichtig', t('Im Browser öffnen'));
+    const oeffnen = textKnoten('button', 'wichtig', t('Im Browser öffnen'));
     oeffnen.addEventListener('click', () => window.klappe.openExternal(ergebnis.webUrl));
     knoepfe.appendChild(oeffnen);
 
     // Zum Herumschicken an die Kollegen – aus dem Panel heraus, ohne den
     // Umweg über den Browser und die Adresszeile.
-    const kopieren = textKnoten(
-      'button',
-      fassung.internal ? 'wichtig' : '',
-      fassung.internal ? t('Link fürs Review kopieren') : t('Link kopieren'),
-    );
+    const kopieren = textKnoten('button', '', t('Link kopieren'));
     kopieren.title = ergebnis.webUrl;
     kopieren.addEventListener('click', async () => {
       const geklappt = await aufruf(window.klappe.copyText(ergebnis.webUrl));
       if (!geklappt) return;
-      const beschriftung = kopieren.textContent;
       kopieren.textContent = t('Kopiert');
       setTimeout(() => {
-        kopieren.textContent = beschriftung;
+        kopieren.textContent = t('Link kopieren');
       }, 2000);
       status(
         fassung.internal
@@ -892,28 +884,6 @@ function zeigeUploadErgebnis(ergebnis) {
     knoepfe.appendChild(kopieren);
   }
 
-  if (fassung.internal) {
-    const freigeben = textKnoten('button', '', t('Reviewen und freigeben'));
-    freigeben.title = t('Macht die interne Fassung für den Kunden sichtbar');
-    freigeben.addEventListener('click', async () => {
-      const sicher = window.confirm(
-        `${t('Fassung {nummer} freigeben?', { nummer: fassung.versionNumber })}\n\n${t(
-          'Danach sieht sie jeder, der über einen Freigabe-Link Zugang zum Video hat – auch der Kunde.',
-        )}`,
-      );
-      if (!sicher) return;
-      freigeben.disabled = true;
-      const ergebnisFreigabe = await aufruf(window.klappe.releaseVersion(fassung.id));
-      if (ergebnisFreigabe) {
-        status(t('Fassung ist freigegeben – der Kunde sieht sie jetzt.'), 'gut');
-        freigeben.textContent = t('Freigegeben');
-        karte.querySelector('.warnung')?.remove();
-      } else {
-        freigeben.disabled = false;
-      }
-    });
-    knoepfe.appendChild(freigeben);
-  }
 
   const marker = textKnoten('button', '', t('Marker setzen'));
   marker.addEventListener('click', () => {

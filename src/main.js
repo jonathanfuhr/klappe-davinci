@@ -316,7 +316,6 @@ function registerHandlers() {
   }));
 
   handle('klappe:renders:cleanup', async (alles) => renders.aufraeumen({ alles: Boolean(alles) }));
-  handle('klappe:version:release', async (versionId) => upload.release(versionId));
 
   /* --------------------------------------------------------------- Sidecar */
 
