@@ -148,7 +148,14 @@ Installer). Leer heißt: das erste der Liste.
 
 Resolve rendert in einen Zwischenordner, das Panel überträgt die Datei per tus
 (blockweise, nach einem Verbindungsabbruch geht es an derselben Stelle weiter)
-und wartet, bis Klappe sie verarbeitet hat. Danach steht „Im Browser öffnen"
+und wartet, bis Klappe sie verarbeitet hat.
+
+> **Blockgröße.** Ab Werk 4 MB – dieselbe wie in der Web-App. Das ist kein
+> Geschmack, sondern Erfahrung: Zwischen Schnittplatz und API sitzt oft ein
+> Proxy (Cloudflare-Tunnel, Firewall), der den Rumpf **einer** Anfrage deckelt.
+> Bei der ersten Erprobung schnitt er bei 10 MiB ab – 16-MB-Blöcke kamen nie
+> an, die Verbindung riss mitten im Schreiben ab, und von außen sah es aus, als
+> hinge der Upload. Wer keinen solchen Proxy hat, kann `uploadChunkMB` erhöhen. Danach steht „Im Browser öffnen"
 bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
 
 - **Ziel:** Projekt → Video → Fassung. Sowohl das Projekt als auch das Video
@@ -367,6 +374,7 @@ startet keinen Upload; **Zuordnung lösen** nimmt sie wieder zurück.
 | `overlayPath` | Ablage der PNGs; leer = `~/.klappe-davinci/overlays` |
 | `mappingPath` | Ablage der Zuordnung; leer = `~/.klappe-davinci` |
 | `renderDir` | Zwischenordner fürs Rendern; leer = Systemtemp |
+| `uploadChunkMB` | Blockgröße des Uploads in MB (Vorgabe 4) |
 | `archiveDir` | Vorgabe für die zusätzliche lokale Ablage; leer = Haken aus |
 
 ---

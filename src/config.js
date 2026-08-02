@@ -91,6 +91,19 @@ const DEFAULTS = {
    */
   renderDir: '',
   /**
+   * Blockgröße des Uploads in MB.
+   *
+   * Vorgabe 4 – dieselbe wie in der Web-App, und das ist kein Zufall: Zwischen
+   * Schnittplatz und API sitzt oft ein Proxy (Cloudflare-Tunnel, Firewall), der
+   * den Rumpf einer einzelnen Anfrage deckelt. Bei der ersten Erprobung schnitt
+   * er bei 10 MiB ab, 16-MiB-Blöcke kamen nie an. Was im Browser täglich
+   * durchgeht, geht auch hier durch.
+   *
+   * Größer lohnt nur ohne solchen Proxy; kleiner kostet Durchsatz, ist aber
+   * immer sicher.
+   */
+  uploadChunkMB: 4,
+  /**
    * Zweitablage: Wohin der gerenderte Master **zusätzlich** kopiert wird –
    * etwa in den Projektordner auf dem Medien-Server. Leer = keine Kopie.
    *
@@ -191,6 +204,7 @@ function update(patch) {
 
   clean.serverUrl = normalizeServerUrl(clean.serverUrl);
   clean.overlayFrames = Math.max(1, Math.round(Number(clean.overlayFrames) || 1));
+  clean.uploadChunkMB = Math.min(512, Math.max(1, Math.round(Number(clean.uploadChunkMB) || 4)));
   clean.renderPresetsStandard = liste(clean.renderPresetsStandard);
   clean.standardPresetsExtra = liste(clean.standardPresetsExtra);
   clean.standardPresetsMode = ['keine', 'auswahl', 'alle'].includes(clean.standardPresetsMode)

@@ -16,10 +16,20 @@
 const fs = require('node:fs');
 
 const api = require('./api.js');
+const config = require('./config.js');
 const { t } = require('./i18n.js');
 
-/** 16 MB je Block – groß genug für Durchsatz, klein genug für zügiges Resume. */
-const CHUNK_BYTES = 16 * 1024 * 1024;
+/**
+ * Blockgröße, aus den Einstellungen.
+ *
+ * Sie ist keine reine Geschmacksfrage: Zwischen Schnittplatz und API sitzt oft
+ * ein Proxy, der den Rumpf **einer** Anfrage deckelt. Ein zu großer Block
+ * kommt dann nie an – die Verbindung reißt mitten im Schreiben ab, und von
+ * außen sieht es aus, als hinge der Upload.
+ */
+function chunkBytes() {
+  return Math.max(1, Number(config.read().uploadChunkMB) || 4) * 1024 * 1024;
+}
 
 /** So oft versuchen wir einen Block erneut, bevor wir aufgeben. */
 const MAX_RETRIES = 5;
@@ -132,6 +142,7 @@ async function sendChunk(location, filePath, offset, length, token) {
  * liegen, ein späterer Aufruf setzt dort auf.
  */
 async function uploadFile({ location, filePath, sizeBytes, onProgress, signal }) {
+  const blockGroesse = chunkBytes();
   let offset = await currentOffset(location);
   let versionId = '';
   let retries = 0;
@@ -143,7 +154,7 @@ async function uploadFile({ location, filePath, sizeBytes, onProgress, signal })
       throw new api.KlappeError(t('Der Upload wurde abgebrochen.'), { code: 'abgebrochen' });
     }
 
-    const length = Math.min(CHUNK_BYTES, sizeBytes - offset);
+    const length = Math.min(blockGroesse, sizeBytes - offset);
     let response;
 
     try {
@@ -155,7 +166,18 @@ async function uploadFile({ location, filePath, sizeBytes, onProgress, signal })
       retries += 1;
       if (retries > MAX_RETRIES) throw error;
       await sleep(Math.min(30_000, 1000 * 2 ** retries));
+
+      const vorher = offset;
       offset = await currentOffset(location);
+
+      // **Kam etwas an, zählt das als Erfolg.** Ohne das stirbt ein großer
+      // Master nach fünf angebrochenen Blöcken, obwohl jeder Versuch Bytes
+      // hinterlassen hat – und die Anzeige stünde die ganze Zeit auf demselben
+      // Stand, weil sie nur nach vollständigen Blöcken nachgeführt wird.
+      if (offset > vorher) {
+        retries = 0;
+        if (onProgress) onProgress(offset, sizeBytes);
+      }
       continue;
     }
 
@@ -190,7 +212,7 @@ async function uploadFile({ location, filePath, sizeBytes, onProgress, signal })
 }
 
 module.exports = {
-  CHUNK_BYTES,
+  chunkBytes,
   createVersionSession,
   currentOffset,
   abortSession,

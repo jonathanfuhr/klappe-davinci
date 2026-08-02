@@ -87,6 +87,12 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Belegte Nummer ohne Ersetzen → verständliche Meldung statt `409`
 - [ ] Netzwerk mitten im Upload trennen (WLAN aus) → nach dem Wiederverbinden
       geht es an derselben Stelle weiter, nicht von vorn
+- [ ] Der Fortschritt zählt auch dann hoch, wenn Blöcke abreißen und wieder
+      aufgesetzt werden – er bleibt **nicht** auf 0 % stehen
+- [ ] Ein Master über 100 MB läuft durch, ohne nach fünf abgerissenen Blöcken
+      aufzugeben (der Zähler wird zurückgesetzt, sobald Bytes ankamen)
+- [ ] Bei einem Proxy mit Rumpfgrenze (Cloudflare-Tunnel) kommen die Blöcke an;
+      im Zweifel `uploadChunkMB` kleiner stellen
 - [ ] **Abbrechen** hält an (ein neuer Anlauf beginnt eine neue Sitzung, muss
       aber nicht noch einmal rendern)
 - [ ] Mit `internalMode: immer` (Vorgabe) gibt es **keinen Haken**, sondern den
