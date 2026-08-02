@@ -858,14 +858,42 @@ function zeigeUploadErgebnis(ergebnis) {
 
   const knoepfe = textKnoten('div', 'werkzeuge');
 
+  // Betonung nach dem, was als Nächstes dran ist: Bei einer internen Fassung
+  // ist das der Link an die Kollegen, **nicht** das Freigeben an den Kunden.
+  // Zwei gleich laute Knöpfe nebeneinander laden zum Falschen ein.
   if (ergebnis.webUrl) {
-    const oeffnen = textKnoten('button', 'wichtig', t('Im Browser öffnen'));
+    const oeffnen = textKnoten('button', fassung.internal ? '' : 'wichtig', t('Im Browser öffnen'));
     oeffnen.addEventListener('click', () => window.klappe.openExternal(ergebnis.webUrl));
     knoepfe.appendChild(oeffnen);
+
+    // Zum Herumschicken an die Kollegen – aus dem Panel heraus, ohne den
+    // Umweg über den Browser und die Adresszeile.
+    const kopieren = textKnoten(
+      'button',
+      fassung.internal ? 'wichtig' : '',
+      fassung.internal ? t('Link fürs Review kopieren') : t('Link kopieren'),
+    );
+    kopieren.title = ergebnis.webUrl;
+    kopieren.addEventListener('click', async () => {
+      const geklappt = await aufruf(window.klappe.copyText(ergebnis.webUrl));
+      if (!geklappt) return;
+      const beschriftung = kopieren.textContent;
+      kopieren.textContent = t('Kopiert');
+      setTimeout(() => {
+        kopieren.textContent = beschriftung;
+      }, 2000);
+      status(
+        fassung.internal
+          ? t('Link kopiert – die Kollegen sehen die Fassung, der Kunde noch nicht.')
+          : t('Link kopiert.'),
+        'gut',
+      );
+    });
+    knoepfe.appendChild(kopieren);
   }
 
   if (fassung.internal) {
-    const freigeben = textKnoten('button', 'wichtig', t('Reviewen und freigeben'));
+    const freigeben = textKnoten('button', '', t('Reviewen und freigeben'));
     freigeben.title = t('Macht die interne Fassung für den Kunden sichtbar');
     freigeben.addEventListener('click', async () => {
       const sicher = window.confirm(

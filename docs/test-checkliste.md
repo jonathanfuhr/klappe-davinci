@@ -85,6 +85,13 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       Hinweis, dass intern hochgeladen wird
 - [ ] Der Erfolgsdialog zeigt bei einer internen Fassung die Warnung „der Kunde
       sieht sie noch nicht" **neben** dem Link
+- [ ] **Link fürs Review kopieren** legt die Adresse in die Zwischenablage; der
+      Knopf meldet kurz „Kopiert", die Statuszeile nennt den Vorbehalt
+      („die Kollegen sehen sie, der Kunde noch nicht")
+- [ ] Die kopierte Adresse im Browser einfügen → landet auf genau dieser Fassung
+- [ ] Bei einer internen Fassung ist **Link fürs Review kopieren** der betonte
+      Knopf, **Reviewen und freigeben** der leise; bei einer nicht-internen ist
+      es „Im Browser öffnen"
 - [ ] **Reviewen und freigeben** fragt nach, gibt frei, die Warnung verschwindet
 - [ ] Mit `internalMode: wahl` erscheint der Haken, vorbelegt nach
       `internalByDefault` des Servers

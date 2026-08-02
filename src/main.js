@@ -12,7 +12,7 @@
  */
 
 const path = require('node:path');
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, shell } = require('electron');
 
 const annotation = require('./annotation.js');
 const api = require('./api.js');
@@ -226,6 +226,14 @@ function registerHandlers() {
 
   handle('klappe:open', async (url) => {
     await shell.openExternal(url);
+    return true;
+  });
+
+  // Über den Hauptprozess und nicht über `navigator.clipboard`: Im
+  // abgeschotteten Renderer hängt das an Berechtigungen und einer Geste, hier
+  // ist es einfach ein Aufruf.
+  handle('klappe:clipboard', async (text) => {
+    clipboard.writeText(String(text || ''));
     return true;
   });
 

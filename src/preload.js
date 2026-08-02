@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('klappe', {
   saveConfig: (patch) => call('klappe:config:save', patch),
   pickFolder: (title) => call('klappe:pickFolder', title),
   openExternal: (url) => call('klappe:open', url),
+  copyText: (text) => call('klappe:clipboard', text),
 
   // Kopplung
   pairStart: () => call('klappe:pair:start'),

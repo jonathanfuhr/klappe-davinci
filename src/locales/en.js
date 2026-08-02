@@ -174,6 +174,12 @@ module.exports = {
   'Diese Fassung ist intern – der Kunde sieht sie noch nicht. Bitte reviewen und freigeben, damit er sie bekommt.':
     'This version is internal – the client cannot see it yet. Please review and release it so they get it.',
   'Im Browser öffnen': 'Open in browser',
+  'Link kopieren': 'Copy link',
+  'Link fürs Review kopieren': 'Copy link for review',
+  Kopiert: 'Copied',
+  'Link kopiert.': 'Link copied.',
+  'Link kopiert – die Kollegen sehen die Fassung, der Kunde noch nicht.':
+    'Link copied – your colleagues can see the version, the client cannot yet.',
   'Reviewen und freigeben': 'Review and release',
   'Macht die interne Fassung für den Kunden sichtbar':
     'Makes the internal version visible to the client',

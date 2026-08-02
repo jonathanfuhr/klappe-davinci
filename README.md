@@ -224,6 +224,13 @@ jemand daraufgeschaut hat. Der Erfolgsdialog sagt das auch – neben dem Link
 steht „Diese Fassung ist intern – der Kunde sieht sie noch nicht" und der
 Knopf **Reviewen und freigeben**.
 
+Der Erfolgsdialog ist nach dieser Reihenfolge gebaut: **Link fürs Review
+kopieren** ist bei einer internen Fassung der betonte Knopf – der geht an die
+Kollegen, solange der Kunde die Fassung noch nicht sieht. **Reviewen und
+freigeben** steht daneben, aber leiser: Es ist der Schritt *danach*, und zwei
+gleich laute Knöpfe laden zum Falschen ein. Bei einer nicht-internen Fassung
+ist „Im Browser öffnen" wieder der betonte.
+
 Zwei Dinge können das ändern:
 
 - **Der Server.** Ist die interne Runde dort abgeschaltet
