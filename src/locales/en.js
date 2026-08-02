@@ -147,6 +147,9 @@ module.exports = {
   'Gilt für das ganze Video, also auch für die schon vorhandenen Fassungen.':
     'Applies to the whole video, including the versions already there.',
   'Endfassungs-Haken nicht gesetzt: {grund}': 'Final-version flag not set: {grund}',
+  'Der Endfassungs-Haken hat nicht gegriffen – die Fassung gilt weiter als Vorschau.':
+    'The final-version flag did not take – the version still counts as a preview.',
+  'Plugin {version}, installiert am {zeitpunkt}': 'Plugin {version}, installed on {zeitpunkt}',
   'KI-Kennzeichnung nicht gesetzt: {grund}': 'AI marking not set: {grund}',
   'z. B. Farbkorrektur': 'e.g. Colour grade',
   'Als interne Fassung hochladen (erst nach Freigabe für Gäste sichtbar)':
@@ -158,6 +161,7 @@ module.exports = {
   'Beim Ersetzen verschwinden die Kommentare der alten Fassung mit ihr – sie hängen an Frames eines Ausspielens, das es dann nicht mehr gibt.':
     'When replacing, the comments of the old version disappear with it – they hang on frames of a render that no longer exists.',
   'Rendern und hochladen': 'Render and upload',
+  'Neuen Rendervorgang starten': 'Start another render',
   'Master zusätzlich lokal ablegen': 'Also store the master locally',
   'Ordner wählen …': 'Choose a folder …',
   'z. B. der Projektordner auf dem Server': 'e.g. the project folder on the server',

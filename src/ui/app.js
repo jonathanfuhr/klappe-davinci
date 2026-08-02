@@ -626,7 +626,13 @@ function wechsleAnsicht(name) {
   for (const ansicht of document.querySelectorAll('.ansicht')) {
     ansicht.classList.toggle('versteckt', ansicht.id !== `ansicht-${name}`);
   }
-  if (name === 'hochladen') void ladeHochladen();
+  if (name === 'hochladen') {
+    if (!zustand.laueftUpload && el('ergebnis-buehne').classList.contains('versteckt')) {
+      zeigeFormular(true);
+      el('fortschritt').classList.add('versteckt');
+    }
+    void ladeHochladen();
+  }
   if (name === 'einstellungen') {
     void ladePresetAuswahl();
     void ladeRenderReste();
@@ -870,8 +876,9 @@ async function starteUpload() {
   el('hochladen-start').disabled = true;
   el('hochladen-abbruch').classList.remove('versteckt');
   el('fortschritt').classList.remove('versteckt');
+  el('balken-fuellung').style.width = '0%';
   el('kopie-text').textContent = '';
-  el('upload-ergebnis').classList.add('versteckt');
+  el('ergebnis-buehne').classList.add('versteckt');
   status('');
 
   const ergebnis = await aufruf(window.klappe.uploadRun(ziel));
@@ -881,14 +888,32 @@ async function starteUpload() {
   el('hochladen-abbruch').classList.add('versteckt');
 
   if (!ergebnis) return;
+
+  // Der Balken bleibt sonst auf dem letzten Verarbeitungsstand stehen (etwa
+  // 88 %), obwohl längst alles durch ist – das liest sich wie ein Abbruch.
+  el('balken-fuellung').style.width = '100%';
   zeigeUploadErgebnis(ergebnis);
   await ladeZustand();
+}
+
+/**
+ * Nach dem Upload hat das Formular ausgedient.
+ *
+ * Vorher stand das Ergebnis unten am Ende einer Seite, für die man erst
+ * scrollen musste – und der wichtigste Satz („der Kunde sieht sie noch nicht")
+ * stand dort, wo ihn niemand sieht. Jetzt weicht alles Vorbereitende dem
+ * Ergebnis, und der Weg zurück ist ein Knopf.
+ */
+function zeigeFormular(sichtbar) {
+  el('hochladen-formular').classList.toggle('versteckt', !sichtbar);
+  el('fortschritt').classList.toggle('versteckt', !sichtbar);
+  el('ergebnis-buehne').classList.toggle('versteckt', sichtbar);
 }
 
 function zeigeUploadErgebnis(ergebnis) {
   const karte = el('upload-ergebnis');
   karte.textContent = '';
-  karte.classList.remove('versteckt');
+  zeigeFormular(false);
 
   const fassung = ergebnis.version;
   karte.appendChild(
@@ -1298,6 +1323,16 @@ function fuelleEinstellungen(daten) {
       })
     : '';
 
+  // Der Stand gehört sichtbar hin: Nach einer Neuinstallation läuft der
+  // Hauptprozess bis zum Neustart des Plugins weiter mit dem alten Code, und
+  // das sieht man der Oberfläche nicht an.
+  el('bau-stand').textContent = daten.build
+    ? t('Plugin {version}, installiert am {zeitpunkt}', {
+        version: daten.build.version,
+        zeitpunkt: zeitpunkt(daten.build.installiert) || '?',
+      })
+    : '';
+
   el('pfad-hinweis').textContent = t('Zuordnung: {zuordnung} · Zeichnungen: {zeichnungen}', {
     zuordnung: daten.mappingFile,
     zeichnungen: daten.overlayDir,
@@ -1464,6 +1499,14 @@ function verdrahte() {
   });
 
   el('hochladen-start').addEventListener('click', starteUpload);
+  el('neuer-lauf').addEventListener('click', () => {
+    zeigeFormular(true);
+    el('balken-fuellung').style.width = '0%';
+    el('fortschritt-text').textContent = '';
+    el('kopie-text').textContent = '';
+    el('fortschritt').classList.add('versteckt');
+    status('');
+  });
   el('hochladen-abbruch').addEventListener('click', async () => {
     await window.klappe.uploadAbort();
     status(t('Abbruch angefordert – der angefangene Upload lässt sich später fortsetzen.'));

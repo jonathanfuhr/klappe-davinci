@@ -11,6 +11,7 @@
  * `KlappeError` – und genau die (401 gegen 403!) will das Panel anzeigen.
  */
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { app, BrowserWindow, clipboard, dialog, ipcMain, shell } = require('electron');
 
@@ -147,6 +148,27 @@ async function spracheBestimmen() {
   return { ...entscheidung, katalog: i18n.katalog(), namen: i18n.LOCALE_NAMES };
 }
 
+/**
+ * Welcher Stand läuft gerade?
+ *
+ * Das Panel liest sein HTML beim Öffnen frisch von der Platte, der
+ * Hauptprozess aber lädt seinen Code nur beim Start des Plugins. Wer nach
+ * einer Neuinstallation nur das Fenster schließt und wieder öffnet, kann
+ * deshalb eine neue Oberfläche vor altem Verhalten haben – und sucht den
+ * Fehler an der falschen Stelle. Genau einmal passiert; seitdem steht der
+ * Stand in den Einstellungen.
+ */
+function bauStand() {
+  try {
+    // eslint-disable-next-line global-require
+    const paket = require('../package.json');
+    const datei = fs.statSync(path.join(__dirname, 'main.js'));
+    return { version: paket.version, installiert: datei.mtime.toISOString() };
+  } catch {
+    return { version: '?', installiert: '' };
+  }
+}
+
 /** Ereignis ans Panel schicken – Fortschritt, Kopplungsstand, Hinweise. */
 function emit(type, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -211,6 +233,7 @@ function registerHandlers() {
       mappingFile: mapping.file(),
       overlayDir: config.overlayDir(settings),
       clientName: auth.clientName(),
+      build: bauStand(),
     };
   });
 

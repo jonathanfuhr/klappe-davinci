@@ -408,6 +408,28 @@ button.leise {
   font-size: 11px;
 }
 
+/*
+ * Nach dem Upload hat das Formular ausgedient. Was bleibt, ist das Ergebnis –
+ * und das steht mittig, nicht unten am Ende einer Seite, für die man erst
+ * scrollen muss.
+ */
+.buehne {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 14px;
+  min-height: calc(100vh - 210px);
+}
+
+.buehne .karte {
+  border-color: var(--akzent);
+}
+
+.buehne > button {
+  align-self: center;
+}
+
 /* ------------------------------------------------------------ Fortschritt */
 
 .fortschritt {

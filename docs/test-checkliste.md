@@ -110,8 +110,13 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Interne Runde im Server abschalten → weder Haken noch interne Fassung,
       der Hinweis nennt den Grund
 - [ ] Mit einem Gast-Token ist der Haken nicht da
+- [ ] **Nach der Installation Resolve neu starten**, nicht nur das Panel
+      schließen und wieder öffnen – sonst läuft die neue Oberfläche vor altem
+      Verhalten. In den Einstellungen steht ganz unten, welcher Stand läuft
 - [ ] **Endfassung** angehakt → die Fassung trägt den Haken in Klappe, und der
       Download-Dateiname hat **kein** `_Vorschau`
+- [ ] Greift der Haken nicht, steht das als Warnung im Ergebnis (nicht still
+      übergangen)
 - [ ] Ohne den Haken steht `_Vorschau` im Dateinamen – auch in der Zweitablage
 - [ ] **KI-Inhalte kennzeichnen** erscheint nur, wenn die Kennzeichnung im
       Workspace eingeschaltet ist; die Arten stehen zur Auswahl
@@ -119,6 +124,12 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       die gewählten Arten
 - [ ] Scheitert einer der beiden Nachträge, gilt der Upload trotzdem als
       gelungen und die Warnung steht im Ergebnis
+- [ ] Nach dem Upload verschwindet das Formular, das Ergebnis steht mittig im
+      Fenster – ohne Scrollen
+- [ ] Der Fortschrittsbalken steht am Ende auf 100 %, nicht auf dem letzten
+      Verarbeitungsstand
+- [ ] **Neuen Rendervorgang starten** bringt das Formular zurück, mit leerem
+      Fortschritt
 - [ ] Der Zwischen-Master ist nach dem Upload aus dem Renderordner verschwunden
 
 ### Zusätzlich lokal ablegen

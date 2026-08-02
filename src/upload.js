@@ -443,6 +443,14 @@ async function run(options, onProgress = () => {}) {
         // `downloadFilename`. Genau darauf wird gleich die Zweitablage
         // umbenannt.
         version = await markiereFassung(version.id, { isFinal: true });
+        // Nachsehen statt annehmen: Ein `200` heißt nur, dass die Anfrage
+        // durchging. Ob der Haken sitzt, steht in der Antwort – und daran
+        // hängt auch der Dateiname der Zweitablage.
+        if (!version?.isFinal) {
+          nachtraege.push(
+            t('Der Endfassungs-Haken hat nicht gegriffen – die Fassung gilt weiter als Vorschau.'),
+          );
+        }
       } catch (fehler) {
         nachtraege.push(t('Endfassungs-Haken nicht gesetzt: {grund}', { grund: fehler.message }));
       }

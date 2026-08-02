@@ -96,6 +96,9 @@
 
       <!-- ------------------------------------------------------- Hochladen -->
       <section id="ansicht-hochladen" class="ansicht versteckt">
+        <!-- Alles Vorbereitende steht zusammen: Ist die Fassung oben, hat es
+             ausgedient und weicht dem Ergebnis. -->
+        <div id="hochladen-formular">
         <div class="karte">
           <label class="feld">
             <span>Render-Preset</span>
@@ -203,6 +206,7 @@
           <button id="hochladen-start" class="wichtig">Rendern und hochladen</button>
           <button id="hochladen-abbruch" class="leise versteckt">Abbrechen</button>
         </div>
+        </div>
 
         <div id="fortschritt" class="fortschritt versteckt">
           <div class="balken"><div id="balken-fuellung"></div></div>
@@ -212,7 +216,10 @@
           <div id="kopie-text" class="klein"></div>
         </div>
 
-        <div id="upload-ergebnis" class="karte versteckt"></div>
+        <div id="ergebnis-buehne" class="buehne versteckt">
+          <div id="upload-ergebnis" class="karte"></div>
+          <button id="neuer-lauf" class="leise">Neuen Rendervorgang starten</button>
+        </div>
       </section>
 
       <!-- --------------------------------------------------- Einstellungen -->
@@ -363,6 +370,8 @@
             <button id="renders-aufraeumen">Reste löschen</button>
           </div>
         </div>
+
+        <p id="bau-stand" class="klein"></p>
       </section>
     </main>
 

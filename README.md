@@ -93,6 +93,12 @@ verlässliche Weg. `install.sh` kann alternativ über `TASTENKUERZEL="@0"` den
 macOS-Weg (`NSUserKeyEquivalents`) eintragen – ob Resolves Qt-Menü darauf
 hört, ist allerdings nicht garantiert, deshalb ist es ab Werk aus.
 
+> **Nach dem Installieren Resolve neu starten.** Das Panel liest sein HTML beim
+> Öffnen frisch von der Platte, der Hauptprozess lädt seinen Code aber nur beim
+> **Start des Plugins**. Wer nur das Fenster schließt und wieder öffnet, kann
+> deshalb eine neue Oberfläche vor altem Verhalten haben – ein Haken ist da,
+> tut aber nichts. Welcher Stand läuft, steht ganz unten in den Einstellungen.
+
 > **`WorkflowIntegration.node` ist an die Resolve-Version gebunden.**
 > Das Modul liegt bewusst nicht im Repo, sondern wird beim Installieren aus
 > `…/Developer/Workflow Integrations/Examples/SamplePlugin/` kopiert. Nach
