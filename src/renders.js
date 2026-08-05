@@ -48,10 +48,28 @@ function schreiben(eintraege) {
  * zweites Panel, das währenddessen aufräumt, soll nicht die Datei löschen, die
  * hier gerade hochgeladen wird.
  */
-function merken(pfad, { timeline = '', inArbeit = true } = {}) {
+function merken(pfad, { timeline = '', inArbeit = true, eigenerOrdner = false } = {}) {
   const eintraege = lesen().filter((eintrag) => eintrag.pfad !== pfad);
-  eintraege.push({ pfad, timeline, erstellt: new Date().toISOString(), inArbeit });
+  eintraege.push({ pfad, timeline, erstellt: new Date().toISOString(), inArbeit, eigenerOrdner });
   schreiben(eintraege);
+}
+
+/**
+ * Datei löschen – und den Ordner gleich mit, wenn er allein für diesen Lauf
+ * angelegt wurde.
+ *
+ * `rmdir` und nicht `rm -r`: Liegt dort wider Erwarten noch etwas, soll es
+ * bleiben. Ein leerer Ordner ist ein Schönheitsfehler, ein rekursives Löschen
+ * im Arbeitsverzeichnis wäre der Fehler, der wehtut.
+ */
+function entferne(eintrag) {
+  fs.rmSync(eintrag.pfad, { force: true });
+  if (!eintrag.eigenerOrdner) return;
+  try {
+    fs.rmdirSync(path.dirname(eintrag.pfad));
+  } catch {
+    /* Nicht leer oder schon weg – beides in Ordnung. */
+  }
 }
 
 /** Den Vermerk „wird gerade benutzt" wieder abnehmen. */
@@ -80,8 +98,9 @@ function entsperren() {
 
 /** Datei löschen und aus dem Buch nehmen – der Normalfall nach dem Upload. */
 function erledigt(pfad) {
+  const eintrag = lesen().find((vermerk) => vermerk.pfad === pfad);
   try {
-    fs.rmSync(pfad, { force: true });
+    entferne(eintrag || { pfad });
   } catch {
     /* Liegen lassen ist besser als abbrechen; der nächste Lauf holt es nach. */
   }
@@ -138,7 +157,7 @@ function aufraeumen(optionen = {}) {
 
   for (const eintrag of weg) {
     try {
-      fs.rmSync(eintrag.pfad, { force: true });
+      entferne(eintrag);
       bytes += eintrag.bytes || 0;
       geloescht.push(eintrag.pfad);
     } catch {

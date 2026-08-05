@@ -145,6 +145,16 @@ module.exports = {
   'Neues Video anlegen': 'Create a new video',
   'Name des neuen Videos': 'Name of the new video',
   'z. B. Teaser 30s': 'e.g. Teaser 30s',
+  'Ohne Upload und ohne lokale Ablage bliebe vom Rendern nichts übrig.':
+    'Without an upload and without a local copy, nothing would be left of the render.',
+  'In Klappe heißt der Download „{dort}" – die Datei hier heißt „{hier}".':
+    'In Klappe the download is called “{dort}” – the file here is called “{hier}”.',
+  'Neue Fassung': 'New version',
+  'Neue Fassung (v{nummer})': 'New version (v{nummer})',
+  'Rendern und ablegen': 'Render and store',
+  'Der Master ist gerendert und abgelegt – hochgeladen wurde nichts.':
+    'The master is rendered and stored – nothing was uploaded.',
+  'Rendern fertig.': 'Render finished.',
   'Neue Fassung (Nummer zählt Klappe weiter)': 'New version (Klappe counts on)',
   intern: 'internal',
   'Beschriftung (optional)': 'Label (optional)',
@@ -169,11 +179,14 @@ module.exports = {
     'When replacing, the comments of the old version disappear with it – they hang on frames of a render that no longer exists.',
   'Rendern und hochladen': 'Render and upload',
   'Neuen Rendervorgang starten': 'Start another render',
-  'Master zusätzlich lokal ablegen': 'Also store the master locally',
+  'Master lokal ablegen': 'Store the master locally',
+  'Nach Klappe hochladen': 'Upload to Klappe',
+  'Es wird nur gerendert und lokal abgelegt – in Klappe entsteht nichts. Projekt, Video, Nummer und der Endfassungs-Haken bestimmen trotzdem den Dateinamen.':
+    'Only rendering and storing locally – nothing is created in Klappe. Project, video, number and the final-version tick still determine the file name.',
   'Ordner wählen …': 'Choose a folder …',
   'z. B. der Projektordner auf dem Server': 'e.g. the project folder on the server',
-  'Gerendert wird trotzdem nur einmal, in den Zwischenordner. Von dort geht die Datei zwei Wege gleichzeitig: hoch nach Klappe und hierher. Am Ende wird sie auf den Namen umbenannt, unter dem Klappe die Fassung führt.':
-    'It is still rendered only once, into the scratch folder. From there the file takes two routes at the same time: up to Klappe and over here. At the end it is renamed to the name under which Klappe lists the version.',
+  'Gerendert wird trotzdem nur einmal, in den Zwischenordner. Von dort geht die Datei zwei Wege gleichzeitig: hoch nach Klappe und hierher. Den Namen bringt sie schon mit – hier liegt dieselbe Datei unter demselben Namen wie in Klappe.':
+    'It is still rendered only once, into the scratch folder. From there the file takes two routes at the same time: up to Klappe and over here. It brings its name along – the same file under the same name as in Klappe.',
   'Für die lokale Ablage fehlt der Ordner.': 'The folder for the local copy is missing.',
   'Ordner für die Zweitablage': 'Folder for the local copy',
   'Zweitablage … {prozent} % ({gesendet} von {gesamt})':

@@ -199,6 +199,9 @@ async function fuelleProjekte(feld, vorauswahl, { mitNeu = false } = {}) {
     feld.appendChild(
       option(projekt.id, projekt.customer ? `${projekt.name} (${projekt.customer})` : projekt.name, {
         name: projekt.name,
+        // Der Kunde steht im Dateinamen – hier hängt er schon an der Auswahl,
+        // statt später noch einmal erfragt zu werden.
+        kunde: projekt.customer || '',
       }),
     );
   }
@@ -599,6 +602,10 @@ async function ladeZustand() {
   zeichneKopf();
   zeichneKontext();
   zeichneZuordnung();
+  // Auch hier, nicht nur beim Öffnen des Reiters: Ein Sprachwechsel setzt das
+  // feste HTML auf seinen gemerkten Urtext zurück – und damit die Aufschrift
+  // des Startknopfes, die vom Upload-Haken abhängt.
+  zeigeUploadFelder();
   fuelleEinstellungen(daten);
 
   if (daten.connectionError) status(daten.connectionError, 'fehler');
@@ -689,6 +696,10 @@ async function ladeHochladen() {
     zustand.fassungseinstellungen = einstellungen;
     zeichneInternZeile(einstellungen);
   }
+
+  // Zum Schluss, damit der Haken über allem steht, was gerade eingeblendet
+  // wurde: Ohne Upload gehört die interne Runde nicht in den Dialog.
+  zeigeUploadFelder();
 
   const ki = await aufruf(window.klappe.aiKinds(), { still: true });
   if (ki) {
@@ -832,20 +843,48 @@ async function ladeFassungenFuerUpload() {
   const videoId = el('ziel-video').value;
   el('neues-video').classList.toggle('versteckt', videoId !== '__neu__');
   uebernehmeKiVomVideo(videoId);
-  await fuelleFassungen(el('ziel-fassung'), videoId, {
-    neuText: t('Neue Fassung (Nummer zählt Klappe weiter)'),
+  const fassungen = await fuelleFassungen(el('ziel-fassung'), videoId, {
+    neuText: t('Neue Fassung'),
   });
+
+  // Dieselbe Regel wie in Klappe: die nächste ganze Zahl über der höchsten.
+  // Sie steht jetzt im Aufklappmenü, weil sie in den Dateinamen wandert –
+  // wer sie dort liest, weiß vorher, wie die Datei heißen wird.
+  zustand.naechsteNummer =
+    Math.floor(Math.max(0, ...(fassungen || []).map((f) => Number(f.versionNumber) || 0))) + 1;
+  const neu = el('ziel-fassung').querySelector('option[value="neu"]');
+  if (neu) neu.textContent = t('Neue Fassung (v{nummer})', { nummer: zustand.naechsteNummer });
+
+  zeigeErsetzenWarnung();
+}
+
+/**
+ * Ohne Upload gibt es keine Fassung – und damit nichts zu ersetzen, nichts
+ * intern zu stellen und nichts zu kennzeichnen. Was dann bliebe, ist der
+ * Dateiname: Den bestimmen Projekt, Video, Nummer und Endfassung weiterhin.
+ */
+function zeigeUploadFelder() {
+  const laedtHoch = el('ziel-upload-an').checked;
+  el('nur-lokal-hinweis').classList.toggle('versteckt', laedtHoch);
+  el('ki-zeile').classList.toggle('nur-mit-upload', !laedtHoch);
+  el('intern-zeile').classList.toggle('nur-mit-upload', !laedtHoch);
+  el('intern-hinweis').classList.toggle('nur-mit-upload', !laedtHoch);
+  el('hochladen-start').textContent = laedtHoch
+    ? t('Rendern und hochladen')
+    : t('Rendern und ablegen');
   zeigeErsetzenWarnung();
 }
 
 function zeigeErsetzenWarnung() {
-  el('ersetzen-warnung').classList.toggle('versteckt', el('ziel-fassung').value === 'neu');
+  const ersetzt = el('ziel-fassung').value !== 'neu' && el('ziel-upload-an').checked;
+  el('ersetzen-warnung').classList.toggle('versteckt', !ersetzt);
 }
 
 /** Das Ziel, wie es im Upload-Formular steht. */
 async function ermittleZiel() {
   let projectId = el('ziel-projekt').value;
   let projectName = el('ziel-projekt').selectedOptions[0]?.dataset.name || '';
+  let kunde = el('ziel-projekt').selectedOptions[0]?.dataset.kunde || '';
   let videoId = el('ziel-video').value;
   let videoName = el('ziel-video').selectedOptions[0]?.dataset.name || '';
 
@@ -862,6 +901,7 @@ async function ermittleZiel() {
     if (!projekt) return null;
     projectId = projekt.id;
     projectName = projekt.name;
+    kunde = projekt.customer || '';
     // Die Liste ist veraltet, sobald etwas dazugekommen ist.
     projekteGeladen = false;
   }
@@ -879,24 +919,34 @@ async function ermittleZiel() {
     projekteGeladen = false;
   }
 
+  const laedtHoch = el('ziel-upload-an').checked;
   const fassungswahl = el('ziel-fassung').value;
-  const ersetzen = fassungswahl !== 'neu';
+  const ersetzen = laedtHoch && fassungswahl !== 'neu';
 
   return {
+    upload: laedtHoch,
     projectId,
     projectName,
     videoId,
     videoName,
+    // Der Kunde steht im Dateinamen. Er kommt aus der Auswahl, nicht aus einer
+    // zweiten Anfrage – und bei einem frisch angelegten Projekt aus dem, was
+    // gerade eingetippt wurde.
+    customer: kunde,
+    // Womit die Datei heißen soll, wenn Klappe die Nummer erst beim Anlegen
+    // vergibt: die nächste ganze Zahl über der höchsten – dieselbe Regel.
+    nextVersionNumber: zustand.naechsteNummer || 1,
     versionNumber: ersetzen ? Number(fassungswahl) : undefined,
     replace: ersetzen,
-    internal: zustand.fassungseinstellungen.internalEnabled && el('ziel-intern').checked,
+    internal:
+      laedtHoch && zustand.fassungseinstellungen.internalEnabled && el('ziel-intern').checked,
     label: el('ziel-label').value.trim(),
     preset: el('preset').value,
     isFinal: el('ziel-final').checked,
     // `undefined` heißt „nicht anfassen" – und das gilt in zwei Fällen: wenn
     // die Kennzeichnung im Workspace abgeschaltet ist, und wenn am Video schon
     // genau das steht, was hier angehakt ist.
-    aiContent: kiGeaendert() ? el('ziel-ki').checked : undefined,
+    aiContent: laedtHoch && kiGeaendert() ? el('ziel-ki').checked : undefined,
     aiKindIds: [...el('ki-arten').querySelectorAll('input:checked')].map((h) => h.value),
     archiveDir: el('ziel-ablage-an').checked ? el('ziel-ablage').value.trim() : '',
     wholeTimeline: el('bereich').value === 'ganz',
@@ -913,6 +963,12 @@ async function starteUpload() {
   }
   if (el('ziel-ablage-an').checked && !ziel.archiveDir) {
     status(t('Für die lokale Ablage fehlt der Ordner.'), 'fehler');
+    return;
+  }
+  // Weder hoch noch hierher: Dann entstünde ein Master, den gleich darauf
+  // niemand mehr hat.
+  if (!ziel.upload && !ziel.archiveDir) {
+    status(t('Ohne Upload und ohne lokale Ablage bliebe vom Rendern nichts übrig.'), 'fehler');
     return;
   }
 
@@ -973,10 +1029,12 @@ function zeigeUploadErgebnis(ergebnis) {
     textKnoten(
       'div',
       '',
-      t('Fassung {nummer} ist da ({stand}).', {
-        nummer: fassung.versionNumber,
-        stand: fassung.status === 'READY' ? t('fertig verarbeitet') : fassung.status,
-      }),
+      fassung
+        ? t('Fassung {nummer} ist da ({stand}).', {
+            nummer: fassung.versionNumber,
+            stand: fassung.status === 'READY' ? t('fertig verarbeitet') : fassung.status,
+          })
+        : t('Der Master ist gerendert und abgelegt – hochgeladen wurde nichts.'),
     ),
   );
 
@@ -984,7 +1042,7 @@ function zeigeUploadErgebnis(ergebnis) {
   // weitergibt, ohne freizugeben, schickt den Kunden auf eine Seite, auf der
   // die Fassung für ihn nicht existiert. Das gehört neben den Link, nicht in
   // eine Fußnote.
-  if (fassung.internal) {
+  if (fassung?.internal) {
     const warnung = textKnoten(
       'div',
       'warnung',
@@ -1030,7 +1088,7 @@ function zeigeUploadErgebnis(ergebnis) {
         kopieren.textContent = t('Link kopieren');
       }, 2000);
       status(
-        fassung.internal
+        fassung?.internal
           ? t('Link kopiert – die Kollegen sehen die Fassung, der Kunde noch nicht.')
           : t('Link kopiert.'),
         'gut',
@@ -1040,15 +1098,18 @@ function zeigeUploadErgebnis(ergebnis) {
   }
 
 
-  const marker = textKnoten('button', '', t('Marker setzen'));
-  marker.addEventListener('click', () => {
-    wechsleAnsicht('kommentare');
-    void setzeMarker();
-  });
-  knoepfe.appendChild(marker);
+  // Marker holt Kommentare zu einer Fassung – ohne Upload gibt es keine.
+  if (fassung) {
+    const marker = textKnoten('button', '', t('Marker setzen'));
+    marker.addEventListener('click', () => {
+      wechsleAnsicht('kommentare');
+      void setzeMarker();
+    });
+    knoepfe.appendChild(marker);
+  }
 
   karte.appendChild(knoepfe);
-  status(t('Upload fertig.'), 'gut');
+  status(fassung ? t('Upload fertig.') : t('Rendern fertig.'), 'gut');
 }
 
 /* ------------------------------------------------------- Marker & Overlays */
@@ -1555,6 +1616,7 @@ function verdrahte() {
   el('ziel-ki').addEventListener('change', () => {
     el('ki-arten').classList.toggle('versteckt', !el('ziel-ki').checked);
   });
+  el('ziel-upload-an').addEventListener('change', zeigeUploadFelder);
   el('ziel-ablage-an').addEventListener('change', () => {
     zeigeAblageZeile();
     el('ziel-ablage').dataset.beruehrt = 'ja';

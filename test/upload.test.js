@@ -12,27 +12,23 @@ afterAll(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-describe('Dateinamen fürs Rendern', () => {
-  it('macht aus Timeline-Namen etwas, das Resolve verträgt', () => {
-    expect(upload.safeName('Teaser 30s – Schnittfassung')).toBe('Teaser_30s_Schnittfassung');
-    expect(upload.safeName('')).toBe('Fassung');
-    expect(upload.safeName('///')).toBe('Fassung');
-  });
-});
-
 describe('Die gerenderte Datei finden', () => {
-  it('nimmt die größte Datei mit passendem Anfang – die Endung hängt am Preset', () => {
-    fs.writeFileSync(path.join(tempDir, 'Teaser_20260802.mov'), Buffer.alloc(2048));
-    fs.writeFileSync(path.join(tempDir, 'Teaser_20260802.mov.tmp'), Buffer.alloc(10));
-    fs.writeFileSync(path.join(tempDir, 'Anderes.mov'), Buffer.alloc(9999));
+  it('nimmt die größte Datei im Lauf-Ordner – die Endung hängt am Preset', () => {
+    // Jeder Lauf hat seinen eigenen Ordner, deshalb wird nicht mehr nach dem
+    // Namensanfang gesucht: Der Master heißt jetzt wie die Fassung, und zwei
+    // Läufe am selben Tag hießen damit gleich.
+    fs.writeFileSync(path.join(tempDir, '260802_Kunde_Kampagne_Teaser_v3_1080p25.mov'), Buffer.alloc(2048));
+    fs.writeFileSync(path.join(tempDir, '260802_Kunde_Kampagne_Teaser_v3_1080p25.mov.tmp'), Buffer.alloc(10));
 
-    const gefunden = upload.findRendered(tempDir, 'Teaser_20260802');
-    expect(path.basename(gefunden.path)).toBe('Teaser_20260802.mov');
+    const gefunden = upload.findRendered(tempDir);
+    expect(path.basename(gefunden.path)).toBe('260802_Kunde_Kampagne_Teaser_v3_1080p25.mov');
     expect(gefunden.size).toBe(2048);
   });
 
   it('gibt null zurück, wenn nichts da ist – der Aufrufer sagt dann, wo gesucht wurde', () => {
-    expect(upload.findRendered(tempDir, 'GibtEsNicht')).toBeNull();
+    const leer = path.join(tempDir, 'leer');
+    fs.mkdirSync(leer, { recursive: true });
+    expect(upload.findRendered(leer)).toBeNull();
   });
 });
 

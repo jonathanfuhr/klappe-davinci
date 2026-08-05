@@ -106,8 +106,13 @@
           </label>
 
           <label class="haken">
+            <input id="ziel-upload-an" type="checkbox" checked />
+            <span>Nach Klappe hochladen</span>
+          </label>
+
+          <label class="haken">
             <input id="ziel-ablage-an" type="checkbox" />
-            <span>Master zusätzlich lokal ablegen</span>
+            <span>Master lokal ablegen</span>
           </label>
 
           <div id="ziel-ablage-zeile" class="feld versteckt">
@@ -117,8 +122,8 @@
             </span>
             <span class="klein">
               Gerendert wird trotzdem nur einmal, in den Zwischenordner. Von dort geht die Datei
-              zwei Wege gleichzeitig: hoch nach Klappe und hierher. Am Ende wird sie auf den Namen
-              umbenannt, unter dem Klappe die Fassung führt.
+              zwei Wege gleichzeitig: hoch nach Klappe und hierher. Den Namen bringt sie schon
+              mit – hier liegt dieselbe Datei unter demselben Namen wie in Klappe.
             </span>
           </div>
 
@@ -132,6 +137,11 @@
         </div>
 
         <div class="karte">
+          <p id="nur-lokal-hinweis" class="klein versteckt">
+            Es wird nur gerendert und lokal abgelegt – in Klappe entsteht nichts. Projekt, Video,
+            Nummer und der Endfassungs-Haken bestimmen trotzdem den Dateinamen.
+          </p>
+
           <label class="feld">
             <span>Projekt</span>
             <select id="ziel-projekt"></select>
@@ -178,7 +188,8 @@
           </label>
 
           <!-- Die KI-Kennzeichnung hängt am Video, nicht an der Fassung –
-               deshalb der Hinweis darunter. -->
+               deshalb der Hinweis darunter. Ohne Upload gibt es nichts zu
+               kennzeichnen: Sie steht dann gar nicht erst da. -->
           <div id="ki-zeile" class="versteckt">
             <label class="haken">
               <input id="ziel-ki" type="checkbox" />

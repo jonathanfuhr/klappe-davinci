@@ -182,11 +182,15 @@ async function context() {
     // „ganze Timeline" – das ist auch Resolves eigenes Standardverhalten.
   }
 
+  const masse = await ausgabeAufloesung(project);
+
   return {
     ok: true,
     projectName,
     timelineName: await timeline.GetName(),
     timelineId: await timeline.GetUniqueId(),
+    width: masse.width,
+    height: masse.height,
     startFrame,
     endFrame,
     frameCount: Math.max(0, endFrame - startFrame),
@@ -198,6 +202,41 @@ async function context() {
     markOutAbsolute,
     currentTimecode: await timeline.GetCurrentTimecode(),
   };
+}
+
+/**
+ * Wie groß ist das Bild, das herauskommt? Für den Dateinamen (`1080p25`).
+ *
+ * Resolve kennt zwei Maße: die Auflösung, in der geschnitten wird, und die
+ * Ausgabe-Auflösung unter *Image Scaling*. Wo beide gesetzt sind, gilt die
+ * zweite – deshalb wird sie zuerst gefragt.
+ *
+ * Was hier **nicht** hineinragt: Ein Render-Preset kann eine eigene Auflösung
+ * mitbringen und die Ausgabe skalieren. Das steht in keiner Projekteinstellung
+ * und ist über die Scripting-API nicht abzufragen. Deshalb wird der Name nach
+ * dem Upload gegen den Download-Namen aus Klappe gehalten (der stammt aus der
+ * fertig verarbeiteten Datei) und ein Unterschied gemeldet, statt ihn zu
+ * verschweigen.
+ */
+async function ausgabeAufloesung(project) {
+  const paare = [
+    ['timelineOutputResolutionWidth', 'timelineOutputResolutionHeight'],
+    ['timelineResolutionWidth', 'timelineResolutionHeight'],
+  ];
+
+  for (const [breiteSchluessel, hoeheSchluessel] of paare) {
+    try {
+      const breite = Number(await project.GetSetting(breiteSchluessel));
+      const hoehe = Number(await project.GetSetting(hoeheSchluessel));
+      if (Number.isFinite(breite) && Number.isFinite(hoehe) && breite > 0 && hoehe > 0) {
+        return { width: breite, height: hoehe };
+      }
+    } catch {
+      /* Kennt diese Fassung die Einstellung nicht, fragen wir die nächste. */
+    }
+  }
+
+  return { width: null, height: null };
 }
 
 /**

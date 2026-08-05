@@ -113,11 +113,28 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] **Nach der Installation Resolve neu starten**, nicht nur das Panel
       schließen und wieder öffnen – sonst läuft die neue Oberfläche vor altem
       Verhalten. In den Einstellungen steht ganz unten, welcher Stand läuft
+- [ ] Der Master heißt schon im Zwischenordner wie der Download
+      (`260805_Kunde_Kampagne_Teaser_v3_1080p25.mov`) – **nicht** nach der
+      Timeline
+- [ ] Online steht unter der Fassung derselbe Name wie an der lokalen Datei
+- [ ] Die Nummer im Aufklappmenü („Neue Fassung (v3)") ist die, die im
+      Dateinamen landet
+- [ ] Stimmt der Auflösungsteil nicht (Preset skaliert), steht der Unterschied
+      als Hinweis im Ergebnis – nicht still daneben
+- [ ] Zwei Läufe am selben Tag mit denselben Angaben kommen sich nicht ins
+      Gehege (eigener Unterordner je Lauf); in der Ablage bekommt der zweite
+      ein `-2`
+- [ ] **Nach Klappe hochladen** abgehakt → es wird nur gerendert und abgelegt;
+      in Klappe entsteht nichts, die Timeline bleibt unzugeordnet
+- [ ] Ohne Upload verschwinden interne Runde und KI-Kennzeichnung aus dem
+      Dialog, der Knopf heißt „Rendern und ablegen"
+- [ ] Beide Haken aus → Meldung statt Start
 - [ ] **Endfassung** angehakt → die Fassung trägt den Haken in Klappe, und der
       Download-Dateiname hat **kein** `_Vorschau`
 - [ ] Greift der Haken nicht, steht das als Warnung im Ergebnis (nicht still
       übergangen)
-- [ ] Ohne den Haken steht `_Vorschau` im Dateinamen – auch in der Zweitablage
+- [ ] Ohne den Haken steht `_Vorschau` im Dateinamen – schon im Zwischenordner,
+      also in beiden Kopien
 - [ ] **KI-Inhalte kennzeichnen** erscheint nur, wenn die Kennzeichnung im
       Workspace eingeschaltet ist; die Arten stehen zur Auswahl
 - [ ] Ein Video, das die Kennzeichnung schon trägt, zeigt sie beim Öffnen des

@@ -490,3 +490,9 @@ button.leise {
 .status.gut {
   color: var(--gut);
 }
+
+/* Ohne Upload gibt es keine Fassung – interne Runde und KI-Kennzeichnung
+   hätten dann nichts, woran sie hängen könnten. */
+.nur-mit-upload {
+  display: none !important;
+}

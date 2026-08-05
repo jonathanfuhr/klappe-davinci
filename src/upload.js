@@ -13,6 +13,7 @@ const path = require('node:path');
 
 const api = require('./api.js');
 const archive = require('./archive.js');
+const dateiname = require('./dateiname.js');
 const config = require('./config.js');
 const { t } = require('./i18n.js');
 const mapping = require('./mapping.js');
@@ -173,33 +174,25 @@ function renderDir() {
   return base;
 }
 
-/** Heute als `JJJJ-MM-TT`, in Ortszeit – nicht UTC: Ein Upload um 23:30 gehört zu heute. */
-function heute() {
-  const jetzt = new Date();
+/** Ein Datum als `JJJJ-MM-TT`, in Ortszeit – nicht UTC: Ein Upload um 23:30 gehört zu heute. */
+function alsIsoDatum(datum) {
   const zwei = (wert) => String(wert).padStart(2, '0');
-  return `${jetzt.getFullYear()}-${zwei(jetzt.getMonth() + 1)}-${zwei(jetzt.getDate())}`;
-}
-
-/** Aus „Teaser Kampagne" wird „Teaser_Kampagne" – Resolve mag keine Sonderzeichen im Namen. */
-function safeName(value) {
-  return (
-    String(value || 'Fassung')
-      .normalize('NFKD')
-      .replace(/[^\p{L}\p{N}]+/gu, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 60) || 'Fassung'
-  );
+  return `${datum.getFullYear()}-${zwei(datum.getMonth() + 1)}-${zwei(datum.getDate())}`;
 }
 
 /**
- * Welche Datei hat Resolve gerade geschrieben? Wir kennen den Namen ohne
- * Endung – die hängt am Preset. Also: alles im Ordner, was so anfängt, und
- * davon die größte.
+ * Welche Datei hat Resolve gerade geschrieben?
+ *
+ * Jeder Lauf rendert in einen **eigenen** Unterordner, deshalb ist die Antwort
+ * einfach: die größte Datei darin. Früher wurde nach dem Namensanfang gesucht;
+ * seit der Master seinen richtigen Namen trägt, wäre das zweimal riskant –
+ * zwei Läufe am selben Tag hießen gleich, und ob Resolve den `CustomName`
+ * unverändert übernimmt, wissen wir nicht sicher. Ein Ordner je Lauf beantwortet
+ * beides, ohne etwas anzunehmen.
  */
-function findRendered(dir, clipName) {
+function findRendered(dir) {
   const candidates = fs
     .readdirSync(dir)
-    .filter((entry) => entry.startsWith(clipName))
     .map((entry) => {
       const full = path.join(dir, entry);
       try {
@@ -227,6 +220,14 @@ function findRendered(dir, clipName) {
 async function run(options, onProgress = () => {}) {
   if (running) throw new api.KlappeError(t('Es läuft bereits ein Upload.'));
 
+  // Weder hoch noch hierher: Dann entstünde ein Master, den gleich darauf
+  // niemand mehr hat. Das ist kein Vorgang, das ist ein Missverständnis.
+  if (options.upload === false && !options.archiveDir) {
+    throw new api.KlappeError(
+      t('Ohne Upload und ohne lokale Ablage bliebe vom Rendern nichts übrig.'),
+    );
+  }
+
   const signal = { aborted: false };
   running = signal;
 
@@ -245,14 +246,35 @@ async function run(options, onProgress = () => {}) {
     throw new api.KlappeError(context.reason);
   }
 
-  const dir = renderDir();
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-  const clipName = `${safeName(options.clipName || context.timelineName)}_${stamp}`;
+  // Ein eigener Unterordner je Lauf: Der Master trägt jetzt seinen richtigen
+  // Namen, und der ist – anders als der alte Zeitstempel – nicht eindeutig.
+  const jetzt = new Date();
+  const stamp = jetzt.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  const dir = path.join(renderDir(), stamp);
+  fs.mkdirSync(dir, { recursive: true });
+
+  // Der Name entsteht **hier und vor dem Rendern**: Resolve schreibt die Datei
+  // gleich richtig, und von dort geht sie unverändert beide Wege. Nichts daran
+  // hängt an einer Antwort des Servers – der Timeline-Name ist ein Arbeitsname
+  // und hat im Projektordner des Kunden nichts zu suchen.
+  const nummerImNamen = Number.isFinite(options.versionNumber)
+    ? options.versionNumber
+    : options.nextVersionNumber;
+  const clipName = dateiname.basisName({
+    datum: dateiname.dateiDatum(jetzt),
+    kunde: options.customer || null,
+    projektName: options.projectName || context.projectName,
+    videoName: options.videoName || context.timelineName,
+    nummer: nummerImNamen,
+    istEndfassung: Boolean(options.isFinal),
+    aufloesung: dateiname.aufloesung(context.width, context.height, context.frameRate),
+  });
 
   // Ob die Fassung intern entsteht, entscheidet **hier** – nicht die
   // Oberfläche. Der Haken im Dialog ist ein Vorschlag; die Regel steht in
   // `internalEntscheidung` und gilt auch, wenn das Panel etwas anderes schickt.
-  const entscheidung = await versionSettings();
+  const laedtHoch = options.upload !== false;
+  const entscheidung = laedtHoch ? await versionSettings() : { immerIntern: false, zeigeHaken: false };
   const internal = entscheidung.immerIntern
     ? true
     : entscheidung.zeigeHaken && Boolean(options.internal);
@@ -333,7 +355,7 @@ async function run(options, onProgress = () => {}) {
       // Bei einem Abbruch hinterlässt Resolve ein angefangenes Bruchstück.
       // Das ist wertlos – aber bei UHD zweistellig groß, und niemand sieht in
       // diesen Ordner. Also gleich weg, nicht erst in 24 Stunden.
-      const bruchstueck = findRendered(dir, clipName);
+      const bruchstueck = findRendered(dir);
       if (bruchstueck) {
         try {
           fs.rmSync(bruchstueck.path, { force: true });
@@ -344,7 +366,7 @@ async function run(options, onProgress = () => {}) {
       throw fehler;
     }
 
-    rendered = findRendered(dir, clipName);
+    rendered = findRendered(dir);
     if (!rendered) {
       throw new api.KlappeError(
         t('Im Zwischenordner liegt keine gerenderte Datei ({ordner}). Schreibt das Preset vielleicht woandershin?', {
@@ -354,27 +376,31 @@ async function run(options, onProgress = () => {}) {
     }
     // Ab jetzt steht die Datei im Buch: Auch wenn Resolve gleich abstürzt,
     // weiß der nächste Lauf, dass hier etwas liegt.
-    renders.merken(rendered.path, { timeline: context.timelineName });
+    renders.merken(rendered.path, { timeline: context.timelineName, eigenerOrdner: true });
 
     /* 2. Sitzung eröffnen ----------------------------------------------- */
-    onProgress({ phase: 'upload', percent: 0, text: t('Upload wird angemeldet …') });
+    if (laedtHoch) {
+      onProgress({ phase: 'upload', percent: 0, text: t('Upload wird angemeldet …') });
 
-    session = await tus.createVersionSession(options.videoId, {
-      filename: path.basename(rendered.path),
-      sizeBytes: rendered.size,
-      label: options.label || '',
-      // Ohne Angabe sucht sich der Server ein Datum – mit Angabe steht in
-      // beiden Namen dasselbe, und zwar der Tag des Ausspielens.
-      fileDate: options.fileDate || heute(),
-      versionNumber: Number.isFinite(options.versionNumber) ? options.versionNumber : undefined,
-      internal,
-      replace: Boolean(options.replace),
-    });
+      session = await tus.createVersionSession(options.videoId, {
+        filename: path.basename(rendered.path),
+        sizeBytes: rendered.size,
+        label: options.label || '',
+        // Ohne Angabe sucht sich der Server ein Datum – mit Angabe steht in
+        // beiden Namen dasselbe, und zwar der Tag des Ausspielens.
+        fileDate: options.fileDate || alsIsoDatum(jetzt),
+        versionNumber: Number.isFinite(options.versionNumber) ? options.versionNumber : undefined,
+        internal,
+        replace: Boolean(options.replace),
+      });
+    }
 
     /* 2b. Zweitablage anstoßen – **gleichzeitig** mit dem Upload.
        Ein UHD-Master über ein Netzlaufwerk zu kopieren dauert so lange wie das
        Hochladen; nacheinander wäre der Schnittplatz doppelt so lange belegt. */
     if (options.archiveDir) {
+      // Der Name steht seit dem Rendern fest – hier wird nur noch kopiert.
+      // Ein belegter Name bekommt eine Nummer; überschrieben wird nie.
       const zielname = archive.freierName(options.archiveDir, path.basename(rendered.path));
       kopie = archive
         .kopiere(rendered.path, zielname, {
@@ -397,121 +423,135 @@ async function run(options, onProgress = () => {}) {
     }
 
     /* 3. Übertragen ------------------------------------------------------ */
-    const startedAt = Date.now();
-    const { versionId } = await tus.uploadFile({
-      location: session.location,
-      filePath: rendered.path,
-      sizeBytes: rendered.size,
-      signal,
-      onProgress: (sent, total) => {
-        const percent = total > 0 ? Math.floor((sent / total) * 100) : 0;
-        const seconds = (Date.now() - startedAt) / 1000;
-        const perSecond = seconds > 0 ? sent / seconds : 0;
-        onProgress({
-          phase: 'upload',
-          percent,
-          sent,
-          total,
-          text: t('Hochladen … {prozent} % ({gesendet} von {gesamt}{tempo})', {
-            prozent: percent,
-            gesendet: formatBytes(sent),
-            gesamt: formatBytes(total),
-            tempo: perSecond > 0 ? `, ${formatBytes(perSecond)}/s` : '',
-          }),
-        });
-      },
-    });
-
-    if (!versionId) {
-      throw new api.KlappeError(
-        t(
-          'Der Server hat keine Fassungs-ID gemeldet. Die Datei ist übertragen – bitte im Browser nachsehen.',
-        ),
-      );
-    }
-
-    /* 4. Auf die Verarbeitung warten ------------------------------------ */
-    onProgress({ phase: 'verify', percent: 0, text: t('Klappe verarbeitet die Fassung …') });
-    let version = await waitForVersion(versionId, signal, (percent) =>
-      onProgress({
-        phase: 'verify',
-        percent,
-        text: t('Klappe verarbeitet die Fassung … {prozent} %', { prozent: percent }),
-      }),
-    );
-
-    /* 4b. Nachträge an Fassung und Video --------------------------------
-       Beides geht erst, wenn die Fassung existiert. Und beides ist Beiwerk:
-       Scheitert es, ist die Fassung trotzdem oben – das gehört als Warnung
-       gemeldet, nicht als gescheiterter Upload. */
+    /* Ab hier gilt: Ohne Upload gibt es keine Fassung – und ohne Fassung
+       nichts nachzutragen, nichts zu verknüpfen und nichts zu verlinken. Der
+       Master ist dann trotzdem entstanden und liegt in der Zweitablage. */
     const nachtraege = [];
+    let version = null;
+    let entry = null;
 
-    if (options.isFinal) {
-      try {
-        version = await markiereFassung(version.id, { isFinal: true });
-        // Nachsehen statt annehmen: Ein `200` heißt nur, dass die Anfrage
-        // durchging. Ob der Haken sitzt, steht in der Antwort – und daran
-        // hängt auch der Dateiname der Zweitablage.
-        // Nachsehen statt annehmen: Ein `200` heißt nur, dass die Anfrage
-        // durchging. Betroffen ist nur die Fassung in Klappe – die lokale
-        // Kopie trägt den Haken ohnehin schon im Namen.
-        if (!version?.isFinal) {
-          nachtraege.push(
-            t('Der Endfassungs-Haken hat in Klappe nicht gegriffen – die Fassung gilt dort weiter als Vorschau.'),
-          );
+    if (laedtHoch) {
+      const startedAt = Date.now();
+      const { versionId } = await tus.uploadFile({
+        location: session.location,
+        filePath: rendered.path,
+        sizeBytes: rendered.size,
+        signal,
+        onProgress: (sent, total) => {
+          const percent = total > 0 ? Math.floor((sent / total) * 100) : 0;
+          const seconds = (Date.now() - startedAt) / 1000;
+          const perSecond = seconds > 0 ? sent / seconds : 0;
+          onProgress({
+            phase: 'upload',
+            percent,
+            sent,
+            total,
+            text: t('Hochladen … {prozent} % ({gesendet} von {gesamt}{tempo})', {
+              prozent: percent,
+              gesendet: formatBytes(sent),
+              gesamt: formatBytes(total),
+              tempo: perSecond > 0 ? `, ${formatBytes(perSecond)}/s` : '',
+            }),
+          });
+        },
+      });
+
+      if (!versionId) {
+        throw new api.KlappeError(
+          t(
+            'Der Server hat keine Fassungs-ID gemeldet. Die Datei ist übertragen – bitte im Browser nachsehen.',
+          ),
+        );
+      }
+
+      /* 4. Auf die Verarbeitung warten ---------------------------------- */
+      onProgress({ phase: 'verify', percent: 0, text: t('Klappe verarbeitet die Fassung …') });
+      version = await waitForVersion(versionId, signal, (percent) =>
+        onProgress({
+          phase: 'verify',
+          percent,
+          text: t('Klappe verarbeitet die Fassung … {prozent} %', { prozent: percent }),
+        }),
+      );
+
+      /* 4b. Nachträge an Fassung und Video ------------------------------
+         Beides geht erst, wenn die Fassung existiert. Und beides ist Beiwerk:
+         Scheitert es, ist die Fassung trotzdem oben – das gehört als Warnung
+         gemeldet, nicht als gescheiterter Upload. */
+      if (options.isFinal) {
+        try {
+          version = await markiereFassung(version.id, { isFinal: true });
+          // Nachsehen statt annehmen: Ein `200` heißt nur, dass die Anfrage
+          // durchging. Betroffen ist nur die Fassung in Klappe – die Datei
+          // trägt den Haken ohnehin schon im Namen.
+          if (!version?.isFinal) {
+            nachtraege.push(
+              t('Der Endfassungs-Haken hat in Klappe nicht gegriffen – die Fassung gilt dort weiter als Vorschau.'),
+            );
+          }
+        } catch (fehler) {
+          nachtraege.push(t('Endfassungs-Haken nicht gesetzt: {grund}', { grund: fehler.message }));
         }
-      } catch (fehler) {
-        nachtraege.push(t('Endfassungs-Haken nicht gesetzt: {grund}', { grund: fehler.message }));
+      }
+
+      if (options.aiContent !== undefined) {
+        try {
+          await markiereVideo(options.videoId, {
+            aiContent: options.aiContent,
+            aiKindIds: options.aiKindIds,
+          });
+        } catch (fehler) {
+          nachtraege.push(t('KI-Kennzeichnung nicht gesetzt: {grund}', { grund: fehler.message }));
+        }
+      }
+
+      /* 4c. Den Namen gegenhalten ---------------------------------------
+         Klappe baut seinen Download-Namen aus der **fertig verarbeiteten**
+         Datei – da steht die tatsächliche Auflösung drin, und die Nummer ist
+         die vergebene. Weicht er von unserem ab, hat entweder das Preset
+         skaliert oder jemand war schneller mit der nächsten Fassung. Beides
+         ist keine Panne, aber es gehört gesagt: Sonst liegt im Projektordner
+         eine Datei, die anders heißt als der Download beim Kunden. */
+      const hier = path.basename(rendered.path);
+      if (version?.downloadFilename && version.downloadFilename !== hier) {
+        nachtraege.push(
+          t('In Klappe heißt der Download „{dort}" – die Datei hier heißt „{hier}".', {
+            dort: version.downloadFilename,
+            hier,
+          }),
+        );
       }
     }
 
-    if (options.aiContent !== undefined) {
-      try {
-        await markiereVideo(options.videoId, {
-          aiContent: options.aiContent,
-          aiKindIds: options.aiKindIds,
-        });
-      } catch (fehler) {
-        nachtraege.push(t('KI-Kennzeichnung nicht gesetzt: {grund}', { grund: fehler.message }));
-      }
-    }
-
-    /* 4c. Auf die Zweitablage warten und ihr den Hausnamen geben ---------- */
+    /* 4d. Auf die Zweitablage warten ------------------------------------ */
     let ablage = null;
     if (kopie) {
       onProgress({ phase: 'kopie', percent: 100, text: t('Zweitablage wird abgeschlossen …') });
       ablage = await kopie;
       kopie = null;
-      if (ablage.ok) {
-        // Der Name kommt vom Server – bis auf das eine Stück, das hier im
-        // Dialog entschieden wurde: `_Vorschau`. Ob der Haken serverseitig
-        // schon gesetzt ist, geht die lokale Kopie nichts an; sie soll nicht
-        // davon abhängen, ob eine nachgereichte Anfrage durchkam.
-        const name = archive.endfassungImNamen(
-          version.downloadFilename,
-          Boolean(options.isFinal),
-        );
-        ablage.path = archive.benenneUm(ablage.path, name);
-      }
     }
 
     /* 5. Sidecar schreiben ---------------------------------------------- */
-    const entry = mapping.put(context.timelineId, {
-      timelineName: context.timelineName,
-      resolveProject: context.projectName,
-      projectId: options.projectId || '',
-      projectName: options.projectName || '',
-      videoId: options.videoId,
-      videoName: options.videoName || '',
-      versionId: version.id,
-      versionNumber: version.versionNumber,
-      wholeTimeline: !useRange,
-      renderIn: useRange ? context.markIn : 0,
-      renderOut: useRange ? context.markOut : null,
-      timelineStart: context.startFrame,
-      frameRate: context.frameRate,
-      dropFrame: context.dropFrame,
-    });
+    // Verknüpft wird eine Timeline mit einer **Fassung**. Ohne Upload gibt es
+    // keine, und ein Eintrag ins Leere wäre schlimmer als keiner.
+    if (version) {
+      entry = mapping.put(context.timelineId, {
+        timelineName: context.timelineName,
+        resolveProject: context.projectName,
+        projectId: options.projectId || '',
+        projectName: options.projectName || '',
+        videoId: options.videoId,
+        videoName: options.videoName || '',
+        versionId: version.id,
+        versionNumber: version.versionNumber,
+        wholeTimeline: !useRange,
+        renderIn: useRange ? context.markIn : 0,
+        renderOut: useRange ? context.markOut : null,
+        timelineStart: context.startFrame,
+        frameRate: context.frameRate,
+        dropFrame: context.dropFrame,
+      });
+    }
 
     erfolgreich = true;
     return {
@@ -519,7 +559,7 @@ async function run(options, onProgress = () => {}) {
       entry,
       ablage,
       nachtraege,
-      webUrl: version.webUrl ? `${api.baseUrl()}${version.webUrl}` : '',
+      webUrl: version?.webUrl ? `${api.baseUrl()}${version.webUrl}` : '',
       file: { path: rendered.path, size: rendered.size },
     };
   } catch (error) {
@@ -551,6 +591,16 @@ async function run(options, onProgress = () => {}) {
         await overlays.setVisible(overlaySpur.previous === null ? true : overlaySpur.previous);
       } catch {
         /* Wenn die Timeline inzwischen weg ist, gibt es nichts einzublenden */
+      }
+    }
+
+    // Kein Master entstanden? Dann bleibt ein leerer Lauf-Ordner zurück –
+    // der gehört weg, sonst füllt sich der Zwischenordner mit Nichts.
+    if (!rendered) {
+      try {
+        fs.rmdirSync(dir);
+      } catch {
+        /* Nicht leer oder schon weg – beides in Ordnung. */
       }
     }
 
@@ -661,6 +711,5 @@ module.exports = {
   abbrechenUndWarten,
   waitForVersion,
   formatBytes,
-  safeName,
   findRendered,
 };

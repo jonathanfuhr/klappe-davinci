@@ -179,36 +179,62 @@ bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
   verschwinden mit ihr – sie hängen an Frames eines Ausspielens, das es dann
   nicht mehr gibt. Das Panel fragt vorher nach.
 
-### Zusätzlich lokal ablegen
+### Der Dateiname
 
-Im Upload-Dialog gibt es den Haken **Master zusätzlich lokal ablegen** und
-darunter einen Ordner – typischerweise der Projektordner auf dem Medien-Server.
+Der Master heißt **so, wie ihn der Kunde später herunterlädt**:
 
-Gerendert wird trotzdem **einmal**, in den Zwischenordner. Von dort geht die
-Datei zwei Wege **gleichzeitig**: hoch nach Klappe und hinüber in die Ablage.
-Nacheinander wäre der Schnittplatz doppelt so lange belegt – ein UHD-Master
-über ein Netzlaufwerk zu kopieren dauert etwa so lange wie das Hochladen.
+```
+260805_Kunde_Kampagne_Teaser_v3_1080p25.mov
+JJMMTT_Kunde__Projekt__Video___Nr__Auflösung
+```
 
-Am Ende wird die Kopie auf **genau den Namen** umbenannt, unter dem der Kunde
-die Fassung herunterlädt (`260802_Kunde_Kampagne_Teaser_v3_1080p25.mov`) – auf
-`downloadFilename` aus dem `VersionDto`, dieselbe Quelle wie im Browser.
+Ohne Endfassungs-Haken steht `_Vorschau` hinter der Nummer, genau wie in
+Klappe. Gebaut wird der Name **im Plugin und vor dem Rendern** – Resolve
+schreibt die Datei über `CustomName` gleich richtig, und von dort geht sie
+unverändert beide Wege: hoch nach Klappe und in die lokale Ablage. Was online
+unter der Fassung steht, ist derselbe Name wie der im Projektordner.
 
-Zwei Stücke des Namens entscheidet aber das Plugin selbst, weil sie hier
-entschieden werden und nicht dort:
+Vorher hieß die Datei nach der Timeline (`Teaser_ohne_Musik_v4b_FINAL2_
+20260805231900.mov`), und genau das stand danach in Klappe. Timeline-Namen sind
+Arbeitsnamen; sie gehören nicht zum Kunden.
 
-- **Das Datum** ist der Tag des Ausspielens. Es geht als `fileDate` schon beim
-  Anlegen der Sitzung mit – so steht in beiden Namen dasselbe.
-- **`_Vorschau`** richtet sich nach dem Endfassungs-Haken im Dialog, nicht
-  danach, ob der Server ihn schon übernommen hat. Der Haken ist eine lokale
-  Entscheidung; die Kopie soll nicht darauf warten, ob eine nachgereichte
-  Anfrage durchkam. Was in Klappe steht, wird trotzdem gesetzt – klappt das
-  nicht, steht es als Warnung im Ergebnis, und die Kopie stimmt trotzdem.
+> **Warum der Name nicht vom Server kommt.** Alles darin steht schon im Dialog:
+> Kunde und Projekt an der Auswahl, das Video daneben, die Nummer im
+> Aufklappmenü (dort steht sie sichtbar, damit man vorher weiß, wie die Datei
+> heißen wird), das Datum ist heute, und den Endfassungs-Haken setzt ein Mensch.
+> Eine Datei, die hier liegt, soll nicht davon abhängen, ob eine Anfrage
+> durchkam. Das Schema selbst ist aus Klappe abgeschrieben
+> (`packages/shared/src/filenames.ts`) – mitsamt seinen Tests, damit ein
+> Auseinanderlaufen hier auffällt und nicht erst im Projektordner.
 
-Der Name des Zwischen-Masters
-hat im Projektordner nichts zu suchen. Er steht aber erst fest, wenn die
-Fassung verarbeitet ist; deshalb erst kopieren, dann umbenennen.
+Ein Stück ist eine **Annahme**: die Auflösung. Sie kommt aus Resolves
+Timeline- bzw. Ausgabe-Auflösung; ob ein Render-Preset zusätzlich skaliert,
+sagt die Scripting-API nicht. Deshalb wird der Name nach dem Upload gegen
+Klappes `downloadFilename` gehalten – der stammt aus der fertig verarbeiteten
+Datei. Ein Unterschied steht als Hinweis im Ergebnis, statt still danebenzuliegen.
+Gibt Resolve keine brauchbaren Maße heraus, fällt der Auflösungsteil weg; ein
+geratenes `1080p` an einem 2160p-Master wäre schlimmer als gar keins.
 
-Zwei Regeln, weil in diesem Ordner fremde Arbeit liegt: **nichts
+### Hochladen und lokal ablegen
+
+Zwei Haken im Upload-Dialog, beide einzeln:
+
+- **Nach Klappe hochladen** – ab Werk gesetzt.
+- **Master lokal ablegen** – dazu ein Ordner, typischerweise der Projektordner
+  auf dem Medien-Server.
+
+Gerendert wird **einmal**, in den Zwischenordner. Von dort geht die Datei zwei
+Wege **gleichzeitig**: hoch nach Klappe und hinüber in die Ablage. Nacheinander
+wäre der Schnittplatz doppelt so lange belegt – ein UHD-Master über ein
+Netzlaufwerk zu kopieren dauert etwa so lange wie das Hochladen.
+
+Ohne Upload entsteht in Klappe **nichts**: keine Fassung, keine Zuordnung der
+Timeline, keine interne Runde und keine KI-Kennzeichnung. Die Auswahl bleibt
+trotzdem stehen, denn Projekt, Video, Nummer und der Endfassungs-Haken
+bestimmen weiterhin den Dateinamen. Beide Haken aus wäre ein Master, den gleich
+darauf niemand mehr hat – das lehnt das Panel ab.
+
+Zwei Regeln für die Ablage, weil in diesem Ordner fremde Arbeit liegt: **nichts
 überschreiben** (ein belegter Name bekommt `-2`, `-3`, …) und **kein
 Bruchstück hinterlassen** – bricht die Kopie ab, wird die halbe Datei
 weggeräumt. Eine gescheiterte Kopie lässt den Upload unberührt; sie steht als
@@ -216,14 +242,16 @@ Warnung im Erfolgsdialog.
 
 Der Pfad in den Einstellungen (und im Installer) ist die **Vorgabe**: Steht
 dort einer, ist der Haken im Dialog vorbelegt. Was im Dialog geändert wird,
-gilt für diesen einen Upload und wandert nicht zurück in die Einstellungen.
+gilt für diesen einen Lauf und wandert nicht zurück in die Einstellungen.
 
 ### Der Zwischenordner
 
 Resolve rendert erst eine Datei, dann wird sie übertragen. Ein UHD-Master ist
 schnell 40 GB groß und entsteht in einem Ordner, den niemand ansieht – deshalb
 führt das Plugin **Buch** über jede Datei, die es dort anlegt
-(`~/.klappe-davinci/renders.json`), und räumt nur auf, was darin steht. Nach
+(`~/.klappe-davinci/renders.json`), und räumt nur auf, was darin steht. Jeder
+Lauf bekommt darin einen **eigenen Unterordner** – der Master trägt seinen
+richtigen Namen, und der ist, anders als ein Zeitstempel, nicht eindeutig. Nach
 Namensmuster zu löschen wäre der Weg, an dessen Ende in einem gemeinsamen
 Arbeitsverzeichnis fremdes Material fehlt.
 
@@ -269,9 +297,10 @@ hängt am **Video**. Das Panel trägt sie deshalb nach, sobald die Fassung ferti
 ist. Scheitert einer der beiden Nachträge, ist die Fassung trotzdem oben und die
 Warnung steht im Ergebnis.
 
-> Der Endfassungs-Haken steht **vor** dem Umbenennen der Zweitablage: Ohne ihn
-> hängt Klappe ein `_Vorschau` an den Dateinamen. Umgekehrt trüge die Kopie im
-> Projektordner einen Namen, den es in Klappe nie gab.
+> Der Endfassungs-Haken steht schon **im Dateinamen**, bevor gerendert wird:
+> Ohne ihn trägt die Datei ein `_Vorschau`, genau wie der Download in Klappe.
+> Der Nachtrag an die Fassung ändert daran nichts mehr – er betrifft nur, was
+> in Klappe steht.
 >
 > Die KI-Kennzeichnung gilt fürs ganze Video, also auch für die schon
 > vorhandenen Fassungen – das steht so im Dialog.
