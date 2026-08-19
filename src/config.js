@@ -123,6 +123,25 @@ const DEFAULTS = {
   overlayBinName: 'Klappe',
   /** Allgemeine Kommentare (ohne Frame) als Marker auf dem ersten Bild? */
   markGeneralComments: true,
+  /**
+   * Wie ein Projekt in den Auswahllisten steht. Platzhalter: `{nummer}`,
+   * `{kunde}`, `{projekt}`.
+   *
+   * Am Schnittplatz sucht man nach der Projektnummer – sie steht auf dem
+   * Auftrag und im Projektordner. Deshalb vorn. Fehlende Teile fallen samt
+   * ihrem Trenner weg, ein Projekt ohne Nummer heißt also `Kunde_Kampagne`.
+   */
+  projectListFormat: '{nummer}_{kunde}_{projekt}',
+  /**
+   * Aus welchem benutzerdefinierten Feld (Phase 15 des Servers) die
+   * Projektnummer kommt. Groß/klein, Leerzeichen und Bindestriche sind beim
+   * Vergleich egal.
+   *
+   * Gibt es das Feld nicht, wird eine Ziffernfolge am Anfang des
+   * Projektnamens genommen – und dort dann weggelassen, damit sie nicht
+   * zweimal dasteht.
+   */
+  projectNumberField: 'Projektnummer',
 };
 
 /** Eine Namensliste säubern: Zeichenketten, ohne Leere, ohne Doppelte. */
@@ -212,6 +231,12 @@ function update(patch) {
     : 'keine';
   clean.internalMode = clean.internalMode === 'wahl' ? 'wahl' : 'immer';
   clean.language = ['de', 'en'].includes(clean.language) ? clean.language : 'auto';
+  // Eine Vorlage ohne einen einzigen Platzhalter hieße: Jedes Projekt trägt
+  // denselben Text. Das ist keine Einstellung, das ist ein Tippfehler.
+  clean.projectListFormat = /\{[a-zA-Z]+\}/.test(String(clean.projectListFormat || ''))
+    ? String(clean.projectListFormat)
+    : DEFAULTS.projectListFormat;
+  clean.projectNumberField = String(clean.projectNumberField ?? '').trim();
 
   fs.mkdirSync(HOME_DIR, { recursive: true });
   fs.writeFileSync(CONFIG_FILE, `${JSON.stringify(clean, null, 2)}\n`, { mode: 0o600 });

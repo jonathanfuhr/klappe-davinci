@@ -18,6 +18,7 @@ const config = require('./config.js');
 const { t } = require('./i18n.js');
 const mapping = require('./mapping.js');
 const overlays = require('./overlays.js');
+const projektliste = require('./projektliste.js');
 const renders = require('./renders.js');
 const resolve = require('./resolve.js');
 const tus = require('./tus.js');
@@ -29,9 +30,27 @@ let fertigGemeldet = null;
 
 /* ------------------------------------------------------------- Zielauswahl */
 
-async function projects() {
+/**
+ * Die Projekte, wie sie in den Auswahllisten stehen sollen.
+ *
+ * Beides passiert **hier** und nicht in der Oberfläche: Der Listenname hängt
+ * an den Einstellungen (die nur der Hauptprozess kennt), und das Ausblenden
+ * archivierter Projekte ist eine Regel, keine Anzeigefrage. `ausser` ist das
+ * Projekt, auf das die Timeline schon zeigt – das bleibt sichtbar, auch wenn
+ * es inzwischen archiviert wurde.
+ */
+async function projects({ ausser = '' } = {}) {
   const data = await api.get('/v1/projects');
-  return Array.isArray(data) ? data : [];
+  const alle = Array.isArray(data) ? data : [];
+  const einstellungen = config.read();
+
+  return projektliste.sichtbare(alle, { ausser }).map((projekt) => ({
+    ...projekt,
+    listenname: projektliste.listenname(projekt, {
+      format: einstellungen.projectListFormat,
+      nummernfeld: einstellungen.projectNumberField,
+    }),
+  }));
 }
 
 async function videos(projectId) {

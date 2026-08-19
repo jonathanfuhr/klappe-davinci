@@ -75,6 +75,19 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       merkt sich den Render-Anfang
 - [ ] „Immer die ganze Timeline" ignoriert ein gesetztes In/Out
 - [ ] **Neues Video anlegen** funktioniert und wird gleich zum Ziel
+- [ ] Die Projekte stehen als `2601_Kunde_Kampagne` in der Liste – im
+      Upload-Dialog **und** beim Zuordnen
+- [ ] Ein Projekt ohne Nummer heißt `Kunde_Kampagne`, ohne führenden Trenner
+- [ ] Die Nummer kommt aus dem benutzerdefinierten Feld; heißt es anders,
+      trägt man den Namen in den Einstellungen ein und die Nummer erscheint
+- [ ] Ohne passendes Feld greift die Ziffernfolge am Namensanfang – und steht
+      danach **nicht** zweimal da
+- [ ] Ein geändertes Format in den Einstellungen wirkt sofort, ohne Neustart
+- [ ] Archivierte Projekte stehen **nicht** in der Liste
+- [ ] Ein archiviertes Projekt, auf das die offene Timeline zeigt, steht
+      trotzdem da – die Auswahl fällt nicht stillschweigend auf ein anderes
+- [ ] `PROJEKTLISTE_FORMAT` und `PROJEKTNUMMER_FELD` aus dem Installer greifen
+      an einem Schnittplatz ohne `config.json`
 - [ ] **Neues Projekt anlegen** funktioniert; die Videoauswahl steht dabei fest
       auf „neu", und beides entsteht in einem Durchgang
 - [ ] Der eingetragene **Kunde** taucht im Download-Dateinamen der Fassung auf

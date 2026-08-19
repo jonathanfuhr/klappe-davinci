@@ -319,7 +319,7 @@ function registerHandlers() {
 
   /* ------------------------------------------------------- Ziel und Upload */
 
-  handle('klappe:targets:projects', async () => upload.projects());
+  handle('klappe:targets:projects', async (optionen) => upload.projects(optionen || {}));
   handle('klappe:targets:videos', async (projectId) => upload.videos(projectId));
   handle('klappe:targets:versions', async (videoId) => upload.versions(videoId));
   handle('klappe:targets:createProject', async (name, customer) =>

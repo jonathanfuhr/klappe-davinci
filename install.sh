@@ -68,6 +68,16 @@ VORGEWAEHLTES_PRESET=""
 # was eine neuere Resolve-Fassung dazulegt und das Plugin noch nicht kennt.
 STANDARD_PRESETS_EXTRA=()
 
+# Wie Projekte in den Auswahllisten stehen. Platzhalter: {nummer}, {kunde},
+# {projekt}. Was fehlt, fällt samt Trenner weg – ein Projekt ohne Nummer heißt
+# also "Kunde_Kampagne". Archivierte Projekte stehen nie in der Liste.
+PROJEKTLISTE_FORMAT="{nummer}_{kunde}_{projekt}"
+
+# Aus welchem benutzerdefinierten Projektfeld in Klappe die Projektnummer
+# kommt. Groß/klein und Trennzeichen sind beim Vergleich egal. Gibt es kein
+# solches Feld, wird eine Ziffernfolge am Anfang des Projektnamens genommen.
+PROJEKTNUMMER_FELD="Projektnummer"
+
 # Tastenkürzel für Workspace → Workflow Integrations → Klappe.
 # Leer = nichts anfassen. Beispiel: "@0" für Cmd+0 (auf dem Mac frei).
 # Schreibweise: @ = Cmd, ~ = Alt, ^ = Ctrl, $ = Shift.
@@ -219,7 +229,9 @@ cat > "${EINSTELLUNGEN}/vorgaben.json" <<VORGABEN
   "standardPresetsMode": "$(json_text "${MITGELIEFERTE_PRESETS}")",
   "defaultPreset": "$(json_text "${VORGEWAEHLTES_PRESET}")",
   "renderPresetsStandard": $(json_liste ${STANDARD_PRESETS[@]+"${STANDARD_PRESETS[@]}"}),
-  "standardPresetsExtra": $(json_liste ${STANDARD_PRESETS_EXTRA[@]+"${STANDARD_PRESETS_EXTRA[@]}"})
+  "standardPresetsExtra": $(json_liste ${STANDARD_PRESETS_EXTRA[@]+"${STANDARD_PRESETS_EXTRA[@]}"}),
+  "projectListFormat": "$(json_text "${PROJEKTLISTE_FORMAT}")",
+  "projectNumberField": "$(json_text "${PROJEKTNUMMER_FELD}")"
 }
 VORGABEN
 

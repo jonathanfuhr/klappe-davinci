@@ -55,6 +55,16 @@ $VorgewaehltesPreset = ''
 # Namen, die zusätzlich als mitgeliefertes Preset gelten sollen.
 $StandardPresetsExtra = @()
 
+# Wie Projekte in den Auswahllisten stehen. Platzhalter: {nummer}, {kunde},
+# {projekt}. Was fehlt, fällt samt Trenner weg. Archivierte Projekte stehen
+# nie in der Liste.
+$ProjektlisteFormat = '{nummer}_{kunde}_{projekt}'
+
+# Aus welchem benutzerdefinierten Projektfeld in Klappe die Projektnummer
+# kommt. Gibt es keins, wird eine Ziffernfolge am Anfang des Projektnamens
+# genommen.
+$ProjektnummerFeld = 'Projektnummer'
+
 # Schon vorhandene eigene Einstellungen (config.json) löschen, damit die
 # Vorgaben greifen? Der Zugangstoken bleibt davon unberührt.
 $EigeneEinstellungenZuruecksetzen = $false
@@ -126,6 +136,8 @@ $Vorgaben = [ordered]@{
     defaultPreset         = $VorgewaehltesPreset
     renderPresetsStandard = @($StandardPresets)
     standardPresetsExtra  = @($StandardPresetsExtra)
+    projectListFormat     = $ProjektlisteFormat
+    projectNumberField    = $ProjektnummerFeld
 }
 
 $VorgabenDatei = Join-Path $Einstellungen 'vorgaben.json'

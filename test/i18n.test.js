@@ -29,6 +29,33 @@ function schluesselAusCode() {
 
 const platzhalter = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
+/**
+ * Die Sätze aus dem festen HTML. Sie sind ebenso Schlüssel wie die aus `t()`,
+ * stehen aber in keinem Aufruf – das Panel tauscht sie beim Start über die
+ * Textknoten aus.
+ */
+function schluesselAusHtml() {
+  const html = fs.readFileSync(path.join(WURZEL, 'src', 'ui', 'index.html'), 'utf8');
+  const gefunden = new Set();
+  for (const treffer of html.matchAll(/>([^<>]+)</g)) {
+    const satz = treffer[1].replace(/\s+/g, ' ').trim();
+    if (satz) gefunden.add(satz);
+  }
+  for (const attribut of ['placeholder', 'title']) {
+    for (const treffer of html.matchAll(new RegExp(`${attribut}="([^"]+)"`, 'g'))) {
+      gefunden.add(treffer[1].replace(/\s+/g, ' ').trim());
+    }
+  }
+  return gefunden;
+}
+
+/**
+ * Was im HTML steht und in beiden Sprachen gleich bleibt: Eigennamen,
+ * Sprachnamen (die stehen in ihrer eigenen Sprache da), Zeichen und ein
+ * Beispiel-URL.
+ */
+const OHNE_UEBERSETZUNG = new Set(['Klappe', 'Deutsch', 'English', '•', '…', 'https://klappe.example.de']);
+
 describe('Sprachwahl', () => {
   it('folgt der Einstellung, wenn eine getroffen wurde', () => {
     expect(
@@ -114,24 +141,22 @@ describe('Katalog', () => {
     expect(schief).toEqual([]);
   });
 
+  it('hat auch für jeden Satz aus dem festen HTML einen Eintrag', () => {
+    // Diese Richtung fehlte lange, und prompt sind zwei neue Beschriftungen
+    // in den Einstellungen englisch nie angekommen: Ein Satz im HTML braucht
+    // keinen `t()`-Aufruf, um übersetzt zu werden – aber sehr wohl einen
+    // Katalogeintrag.
+    const fehlend = [...schluesselAusHtml()].filter(
+      (satz) => !(satz in en) && !OHNE_UEBERSETZUNG.has(satz),
+    );
+    expect(fehlend).toEqual([]);
+  });
+
   it('enthält keinen Eintrag, den es im Code nicht mehr gibt', () => {
     // Die Gegenrichtung: Ein Satz, der aus dem Code verschwunden ist, bleibt
     // sonst für immer im Katalog stehen und wird bei jeder Durchsicht wieder
-    // mitgelesen. Die Texte im festen HTML zählen mit – sie sind ebenfalls
-    // Schlüssel, stehen aber nicht in einem `t()`.
-    const html = fs.readFileSync(path.join(WURZEL, 'src', 'ui', 'index.html'), 'utf8');
-    const ausHtml = new Set();
-    for (const treffer of html.matchAll(/>([^<>]+)</g)) {
-      const satz = treffer[1].replace(/\s+/g, ' ').trim();
-      if (satz) ausHtml.add(satz);
-    }
-    for (const attribut of ['placeholder', 'title']) {
-      for (const treffer of html.matchAll(new RegExp(`${attribut}="([^"]+)"`, 'g'))) {
-        ausHtml.add(treffer[1].replace(/\s+/g, ' ').trim());
-      }
-    }
-
-    const bekannt = new Set([...schluessel, ...ausHtml]);
+    // mitgelesen.
+    const bekannt = new Set([...schluessel, ...schluesselAusHtml()]);
     const verwaist = Object.keys(en).filter((satz) => !bekannt.has(satz));
     expect(verwaist).toEqual([]);
   });

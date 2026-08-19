@@ -188,7 +188,10 @@ function zeitpunkt(iso) {
  * hier einmal und nicht zweimal.
  */
 async function fuelleProjekte(feld, vorauswahl, { mitNeu = false } = {}) {
-  const projekte = await aufruf(window.klappe.projects());
+  // Die Vorauswahl mitgeben: Ein inzwischen archiviertes Projekt, auf das die
+  // Timeline schon zeigt, soll stehen bleiben – sonst fiele die Auswahl
+  // stillschweigend auf ein anderes, und niemand sähe, warum.
+  const projekte = await aufruf(window.klappe.projects({ ausser: vorauswahl || '' }));
   if (!projekte) return null;
 
   feld.textContent = '';
@@ -197,7 +200,11 @@ async function fuelleProjekte(feld, vorauswahl, { mitNeu = false } = {}) {
   if (mitNeu) feld.appendChild(option('__neu__', `➕ ${t('Neues Projekt anlegen')}`));
   for (const projekt of projekte) {
     feld.appendChild(
-      option(projekt.id, projekt.customer ? `${projekt.name} (${projekt.customer})` : projekt.name, {
+      // Beschriftung nach der Vorlage aus den Einstellungen
+      // (`2601_Kunde_Kampagne`) – gebaut im Hauptprozess, wo die Einstellungen
+      // liegen. Der **Name** bleibt daneben: Er geht in den Dateinamen ein,
+      // und der folgt Klappes Schema, nicht dieser Anzeigevorlage.
+      option(projekt.id, projekt.listenname || projekt.name, {
         name: projekt.name,
         // Der Kunde steht im Dateinamen – hier hängt er schon an der Auswahl,
         // statt später noch einmal erfragt zu werden.
@@ -1441,6 +1448,8 @@ function fuelleEinstellungen(daten) {
     ? `${daten.sprache.locale.toUpperCase()} — ${herkunft[daten.sprache.quelle] || ''}`
     : '';
   el('allgemeine-marker').checked = Boolean(s.markGeneralComments);
+  el('projektliste-format').value = s.projectListFormat || '';
+  el('projektnummer-feld').value = s.projectNumberField || '';
   fuelleFarben(el('farbe-offen'), s.markerColor);
   fuelleFarben(el('farbe-erledigt'), s.markerColorResolved);
 
@@ -1544,11 +1553,15 @@ async function speicherePfade() {
       markerColor: el('farbe-offen').value,
       markerColorResolved: el('farbe-erledigt').value,
       markGeneralComments: el('allgemeine-marker').checked,
+      projectListFormat: el('projektliste-format').value.trim(),
+      projectNumberField: el('projektnummer-feld').value.trim(),
     }),
   );
   if (gespeichert) {
     status(t('Einstellungen gespeichert.'), 'gut');
     await ladeZustand();
+    // Die Listen tragen die neue Beschriftung erst, wenn sie neu gebaut sind.
+    projekteGeladen = false;
   }
 }
 

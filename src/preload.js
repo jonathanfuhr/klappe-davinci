@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('klappe', {
   seek: (commentFrame) => call('klappe:seek', commentFrame),
 
   // Ziel & Upload
-  projects: () => call('klappe:targets:projects'),
+  projects: (optionen) => call('klappe:targets:projects', optionen),
   videos: (projectId) => call('klappe:targets:videos', projectId),
   versions: (videoId) => call('klappe:targets:versions', videoId),
   createProject: (name, customer) => call('klappe:targets:createProject', name, customer),

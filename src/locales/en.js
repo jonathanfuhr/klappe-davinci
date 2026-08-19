@@ -183,6 +183,16 @@ module.exports = {
   'Nach Klappe hochladen': 'Upload to Klappe',
   'Es wird nur gerendert und lokal abgelegt – in Klappe entsteht nichts. Projekt, Video, Nummer und der Endfassungs-Haken bestimmen trotzdem den Dateinamen.':
     'Only rendering and storing locally – nothing is created in Klappe. Project, video, number and the final-version tick still determine the file name.',
+  'Projekte in den Listen': 'Projects in the lists',
+  'Platzhalter sind {nummer}, {kunde} und {projekt}. Was fehlt, fällt samt Trenner weg. Archivierte Projekte stehen nicht in der Liste.':
+    'Placeholders are {nummer}, {kunde} and {projekt}. Whatever is missing drops out together with its separator. Archived projects are not listed.',
+  '{nummer}_{kunde}_{projekt}': '{nummer}_{kunde}_{projekt}',
+  'Feld mit der Projektnummer': 'Field holding the project number',
+  'Ein benutzerdefiniertes Projektfeld in Klappe. Gibt es keins mit diesem Namen, wird eine Ziffernfolge am Anfang des Projektnamens genommen.':
+    'A custom project field in Klappe. If there is none by that name, a run of digits at the start of the project name is used instead.',
+  // Der Vorgabewert ist der Feldname, wie er in Klappe steht – er wird nicht
+  // übersetzt, sonst suchte das Plugin nach einem Feld, das es nicht gibt.
+  'Projektnummer': 'Projektnummer',
   'Ordner wählen …': 'Choose a folder …',
   'z. B. der Projektordner auf dem Server': 'e.g. the project folder on the server',
   'Gerendert wird trotzdem nur einmal, in den Zwischenordner. Von dort geht die Datei zwei Wege gleichzeitig: hoch nach Klappe und hierher. Den Namen bringt sie schon mit – hier liegt dieselbe Datei unter demselben Namen wie in Klappe.':

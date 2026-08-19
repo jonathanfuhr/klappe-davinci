@@ -335,6 +335,22 @@
 
         <div class="karte">
           <label class="feld">
+            <span>Projekte in den Listen</span>
+            <input id="projektliste-format" type="text" placeholder="{nummer}_{kunde}_{projekt}" />
+            <span class="klein">
+              Platzhalter sind {nummer}, {kunde} und {projekt}. Was fehlt, fällt samt Trenner weg.
+              Archivierte Projekte stehen nicht in der Liste.
+            </span>
+          </label>
+          <label class="feld">
+            <span>Feld mit der Projektnummer</span>
+            <input id="projektnummer-feld" type="text" placeholder="Projektnummer" />
+            <span class="klein">
+              Ein benutzerdefiniertes Projektfeld in Klappe. Gibt es keins mit diesem Namen, wird
+              eine Ziffernfolge am Anfang des Projektnamens genommen.
+            </span>
+          </label>
+          <label class="feld">
             <span>Ablage der Zeichnungen (leer = Benutzerordner)</span>
             <span class="pfadzeile">
               <input id="overlay-pfad" type="text" placeholder="gemeinsamer Ordner" />

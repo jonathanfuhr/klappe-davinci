@@ -171,6 +171,27 @@ bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
   in den Namen, unter dem die Zweitablage im Projektordner landet. Ein Projekt,
   das es noch nicht gibt, hat keine Videos – die Videoauswahl steht dann fest
   auf „neu", statt eine leere Liste anzubieten.
+- **Projektliste:** Die Projekte stehen als `2601_Kunde_Kampagne-Fruehjahr` da –
+  am Schnittplatz sucht man nach der **Projektnummer**, sie steht auf dem
+  Auftrag und im Projektordner. Das Format ist eine Vorlage
+  (`projectListFormat`, auch im Installer): `{nummer}`, `{kunde}`, `{projekt}`,
+  beliebig umstellbar. Was fehlt, fällt samt Trenner weg – ein Projekt ohne
+  Nummer heißt `Kunde_Kampagne`, nicht `_Kunde_Kampagne`.
+
+  Die Nummer kommt aus einem **benutzerdefinierten Projektfeld** in Klappe
+  (`projectNumberField`, ab Werk „Projektnummer"; Groß/klein und Trennzeichen
+  sind beim Vergleich egal). Gibt es keins, wird eine Ziffernfolge am Anfang
+  des Projektnamens genommen und dort weggelassen, damit sie nicht zweimal
+  dasteht. „4K Testschnitt" wird dabei nicht zur Nummer 4 – erkannt werden nur
+  zwei bis acht Ziffern mit einem Trennzeichen dahinter.
+
+  Diese Vorlage gilt **nur für die Anzeige**. Der Dateiname folgt weiterhin
+  Klappes Schema, damit die Datei heißt wie der Download.
+- **Archivierte Projekte** stehen nicht in der Liste: Dort wird nichts mehr
+  aktualisiert, ein Upload hinein wäre fast immer ein Versehen. Eine Ausnahme
+  gilt für das Projekt, auf das die offene Timeline schon zeigt – es
+  stillschweigend verschwinden zu lassen hieße, dass die Auswahl auf ein
+  anderes fällt und niemand sieht, warum.
 - **Bereich:** ab Werk wie in Resolve – In/Out, wenn gesetzt, sonst die ganze
   Timeline. Der verwendete Bereich wandert in die Zuordnung; er ist der
   Frame-Offset für Marker und Overlays.
@@ -426,6 +447,8 @@ startet keinen Upload; **Zuordnung lösen** nimmt sie wieder zurück.
 | `overlayPath` | Ablage der PNGs; leer = `~/.klappe-davinci/overlays` |
 | `mappingPath` | Ablage der Zuordnung; leer = `~/.klappe-davinci` |
 | `renderDir` | Zwischenordner fürs Rendern; leer = Systemtemp |
+| `projectListFormat` | Wie Projekte in den Listen stehen: `{nummer}`, `{kunde}`, `{projekt}` |
+| `projectNumberField` | Projektfeld in Klappe, aus dem die Nummer kommt |
 | `uploadChunkMB` | Blockgröße des Uploads in MB (Vorgabe 4) |
 | `archiveDir` | Vorgabe für die zusätzliche lokale Ablage; leer = Haken aus |
 
