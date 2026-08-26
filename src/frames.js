@@ -172,7 +172,53 @@ function commentFrameToTimecode(commentFrame, { renderIn = 0, timelineStart = 0,
   return framesToTimecode(toRecordFrame(commentFrame, renderIn, timelineStart), rate, dropFrame);
 }
 
+/**
+ * Welche Zahlen bekommt `SetRenderSettings` für `MarkIn`/`MarkOut`?
+ *
+ * Die Scripting-Doku sagt nur „int" – ob sie ab Timeline-Anfang oder inklusive
+ * des Start-Timecodes zählen, steht nirgends. Geraten hat es genau einmal
+ * gekostet: Bei einer Timeline ab 01:00:00:00 lagen die abgeschickten Werte um
+ * eine Stunde daneben, Resolve verwarf sie stillschweigend und spielte die
+ * ganze Timeline aus.
+ *
+ * Deshalb drei Kandidaten in dieser Reihenfolge, und der erste, den Resolve
+ * bestätigt, gewinnt:
+ *
+ * 1. **Wie gemeldet** – genau die Zahlen aus `GetMarkInOut()`. Dieselbe
+ *    Resolve-Fassung, dasselbe Timeline-Objekt: Dass beide Aufrufe dieselbe
+ *    Zählweise benutzen, ist die naheliegendste Annahme – und die einzige, die
+ *    ganz ohne Umrechnung auskommt.
+ * 2. **Relativ** zum Timeline-Anfang (0 = erstes Bild).
+ * 3. **Absolut**, also inklusive Start-Timecode.
+ *
+ * Doppelte fallen weg: Bei einer Timeline ab 00:00:00:00 sind alle drei gleich.
+ */
+function renderBereichKandidaten({ rohVon, rohBis, relativVon, relativBis, startFrame = 0 }) {
+  const start = Number(startFrame) || 0;
+  const roh = [Number(rohVon), Number(rohBis)];
+  const relativ = [Number(relativVon), Number(relativBis)];
+
+  const kandidaten = [
+    { art: 'gemeldet', von: roh[0], bis: roh[1] },
+    { art: 'relativ', von: relativ[0], bis: relativ[1] },
+    { art: 'absolut', von: relativ[0] + start, bis: relativ[1] + start },
+  ];
+
+  const gesehen = new Set();
+  return kandidaten.filter((kandidat) => {
+    // Ein Bereich ohne Länge ist keiner – und ein negativer erst recht nicht.
+    if (!Number.isFinite(kandidat.von) || !Number.isFinite(kandidat.bis)) return false;
+    if (kandidat.von < 0 || kandidat.bis <= kandidat.von) return false;
+
+    const schluessel = `${kandidat.von}:${kandidat.bis}`;
+    if (gesehen.has(schluessel)) return false;
+    gesehen.add(schluessel);
+    return true;
+  });
+}
+
 module.exports = {
+  renderBereichKandidaten,
   parseFrameRate,
   fpsToNumber,
   nominalFps,

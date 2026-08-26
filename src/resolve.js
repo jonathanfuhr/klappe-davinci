@@ -161,21 +161,39 @@ async function context() {
   const frameRate = await timelineFrameRate(timeline, project);
   const dropFrame = await timelineDropFrame(timeline);
 
-  // In/Out zweimal: **relativ** zum Timeline-Anfang für die Frame-Mathematik
-  // (Marker zählen so) und **absolut** für `SetRenderSettings`, das wie
-  // `GetStartFrame()` in absoluten Timeline-Frames rechnet. Die beiden
-  // Zählweisen zu verwechseln kostet genau eine Stunde Versatz.
+  // In/Out dreimal: **relativ** zum Timeline-Anfang für die Frame-Mathematik
+  // (Marker zählen so), **absolut** als einer der Kandidaten für den
+  // Render-Bereich – und **roh**, also genau so, wie Resolve es gemeldet hat.
+  //
+  // Die rohen Zahlen sind neu und der eigentliche Punkt: Welche Zählweise
+  // `SetRenderSettings` für MarkIn/MarkOut erwartet, steht nirgends. Vorher
+  // wurde hier auf absolut umgerechnet und das für sicher gehalten – bei einer
+  // Timeline ab 01:00:00:00 lag der Wert damit eine Stunde daneben, Resolve
+  // verwarf ihn stillschweigend und spielte die ganze Timeline aus.
   let markIn = null;
   let markOut = null;
   let markInAbsolute = null;
   let markOutAbsolute = null;
+  // Die **rohen** Zahlen kommen mit: Für `SetRenderSettings` ist nicht
+  // dokumentiert, in welcher Zählweise es MarkIn/MarkOut erwartet, und die
+  // unveränderte Antwort von `GetMarkInOut()` ist der beste erste Versuch.
+  let markInRaw = null;
+  let markOutRaw = null;
+  // Warum es keinen Bereich gibt, ist eine Auskunft wert: „nicht gesetzt" und
+  // „diese Resolve-Fassung kennt die Methode nicht" sehen im Panel sonst
+  // gleich aus – nämlich wie „die ganze Timeline wird ausgespielt".
+  let markInOutQuelle = 'keine-methode';
   try {
     const marks = await timeline.GetMarkInOut();
+    markInOutQuelle = 'nicht-gesetzt';
     if (marks && marks.video && Number.isFinite(Number(marks.video.in))) {
-      markIn = toRelativeFrame(Number(marks.video.in), startFrame);
-      markOut = toRelativeFrame(Number(marks.video.out), startFrame);
+      markInRaw = Number(marks.video.in);
+      markOutRaw = Number(marks.video.out);
+      markIn = toRelativeFrame(markInRaw, startFrame);
+      markOut = toRelativeFrame(markOutRaw, startFrame);
       markInAbsolute = markIn + startFrame;
       markOutAbsolute = markOut + startFrame;
+      markInOutQuelle = 'gesetzt';
     }
   } catch {
     // GetMarkInOut gibt es erst ab Resolve 18.5. Ohne die Methode gilt
@@ -200,6 +218,9 @@ async function context() {
     markOut,
     markInAbsolute,
     markOutAbsolute,
+    markInRaw,
+    markOutRaw,
+    markInOutQuelle,
     currentTimecode: await timeline.GetCurrentTimecode(),
   };
 }
@@ -314,7 +335,90 @@ async function renderPresets() {
  * fertig ist. Gibt den Auftragsstatus zurück; die entstandene Datei sucht der
  * Aufrufer im Zielordner (Resolve hängt je nach Preset eine Endung an).
  */
-async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, onProgress }) {
+/**
+ * Welchen Bereich hat Resolve dem Auftrag wirklich mitgegeben?
+ *
+ * `GetRenderJobList()` liefert die Aufträge als Wörterbücher; welche Schlüssel
+ * darin stehen, ist nicht dokumentiert. Deshalb wird defensiv gesucht und
+ * `null` zurückgegeben, wenn nichts Verwertbares dabei ist – dann lässt sich
+ * eben nichts nachprüfen, und das ist eine Auskunft für sich.
+ */
+async function auftragsBereich(project, jobId) {
+  try {
+    const auftraege = await project.GetRenderJobList();
+    if (!Array.isArray(auftraege) || auftraege.length === 0) return null;
+
+    const treffer =
+      auftraege.find(
+        (auftrag) => String(auftrag?.JobId ?? auftrag?.jobId ?? auftrag?.id ?? '') === String(jobId),
+      ) || auftraege[auftraege.length - 1];
+
+    const von = Number(treffer?.MarkIn);
+    const bis = Number(treffer?.MarkOut);
+    if (!Number.isFinite(von) || !Number.isFinite(bis)) return null;
+    return { von, bis };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Welche Zählweise `SetRenderSettings` für MarkIn/MarkOut erwartet, hat sich
+ * einmal herausgestellt – dann gilt sie für diese Sitzung.
+ */
+let gemerkteBereichsart = null;
+
+/**
+ * Einen Render-Auftrag anlegen und nachsehen, ob der Bereich angekommen ist.
+ *
+ * Das ist der Kern der Sache: `AddRenderJob()` liefert eine ID, auch wenn
+ * Resolve MarkIn/MarkOut verworfen hat – ein Rückgabewert allein beweist hier
+ * nichts. Gefragt wird deshalb der Auftrag selbst.
+ */
+async function auftragMitBereich(project, basis, kandidat) {
+  const gesetzt = await project.SetRenderSettings({
+    ...basis,
+    SelectAllFrames: false,
+    MarkIn: kandidat.von,
+    MarkOut: kandidat.bis,
+  });
+  if (!gesetzt) return { ok: false, grund: t('Resolve hat die Einstellungen abgelehnt.') };
+
+  const jobId = await project.AddRenderJob();
+  if (!jobId) return { ok: false, grund: t('Resolve hat keinen Auftrag angelegt.') };
+
+  const gemeldet = await auftragsBereich(project, jobId);
+  if (!gemeldet) {
+    // Diese Resolve-Fassung nennt den Bereich nicht. Weiterrechnen mit dem
+    // ersten Kandidaten ist besser als gar nicht auszuspielen – aber es steht
+    // hinterher als „ungeprüft" im Ergebnis.
+    return { ok: true, jobId, geprueft: false };
+  }
+  if (gemeldet.von === kandidat.von && gemeldet.bis === kandidat.bis) {
+    return { ok: true, jobId, geprueft: true };
+  }
+
+  await project.DeleteRenderJob(jobId);
+  return {
+    ok: false,
+    grund: t('Resolve meldet {von}–{bis} statt {sollVon}–{sollBis}.', {
+      von: gemeldet.von,
+      bis: gemeldet.bis,
+      sollVon: kandidat.von,
+      sollBis: kandidat.bis,
+    }),
+  };
+}
+
+/**
+ * Timeline ausspielen.
+ *
+ * `bereich` ist `{ kandidaten: [{ art, von, bis }] }` – die möglichen
+ * Zählweisen für MarkIn/MarkOut, in der Reihenfolge, in der sie probiert
+ * werden sollen (siehe `frames.renderBereichKandidaten`). Fehlt `bereich`,
+ * wird die ganze Timeline ausgespielt.
+ */
+async function renderTimeline({ preset, targetDir, clipName, bereich, onProgress }) {
   const project = await getProject();
   if (!project) throw new Error(t('In Resolve ist kein Projekt geöffnet.'));
 
@@ -325,7 +429,7 @@ async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, on
     throw new Error(t('Das Render-Preset „{preset}" ließ sich nicht laden.', { preset }));
   }
 
-  const settings = {
+  const basis = {
     TargetDir: targetDir,
     CustomName: clipName,
     // Ein Auftrag, eine Datei: „Single clip" ist die Voraussetzung dafür, dass
@@ -334,22 +438,45 @@ async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, on
     ExportAudio: true,
   };
 
-  // Render-Range: Resolves eigenes Verhalten übernehmen – In/Out, wenn gesetzt,
-  // sonst die ganze Timeline.
-  if (Number.isFinite(markIn) && Number.isFinite(markOut) && markOut > markIn) {
-    settings.SelectAllFrames = false;
-    settings.MarkIn = markIn;
-    settings.MarkOut = markOut;
+  let jobId = null;
+  let benutzterBereich = null;
+
+  if (bereich && bereich.kandidaten && bereich.kandidaten.length > 0) {
+    // Was sich schon einmal bewährt hat, zuerst – der Rest bleibt als Rückfall
+    // stehen, falls jemand die Resolve-Fassung wechselt.
+    const kandidaten = [...bereich.kandidaten].sort((a, b) =>
+      a.art === gemerkteBereichsart ? -1 : b.art === gemerkteBereichsart ? 1 : 0,
+    );
+
+    const gescheitert = [];
+    for (const kandidat of kandidaten) {
+      const versuch = await auftragMitBereich(project, basis, kandidat);
+      if (versuch.ok) {
+        jobId = versuch.jobId;
+        benutzterBereich = { ...kandidat, geprueft: versuch.geprueft };
+        gemerkteBereichsart = kandidat.art;
+        break;
+      }
+      gescheitert.push(`${kandidat.von}–${kandidat.bis}: ${versuch.grund}`);
+    }
+
+    if (!jobId) {
+      // Lieber gar nicht ausspielen als die ganze Timeline: Ein Master, der
+      // fünf Minuten statt dreißig Sekunden lang ist, fällt erst auf, wenn er
+      // als Fassung in Klappe steht.
+      throw new Error(
+        t('Der In/Out-Bereich ließ sich nicht setzen – es wurde nichts ausgespielt. {details}', {
+          details: gescheitert.join(' · '),
+        }),
+      );
+    }
   } else {
-    settings.SelectAllFrames = true;
+    if (!(await project.SetRenderSettings({ ...basis, SelectAllFrames: true }))) {
+      throw new Error(t('Die Render-Einstellungen ließen sich nicht setzen.'));
+    }
+    jobId = await project.AddRenderJob();
+    if (!jobId) throw new Error(t('Resolve hat keinen Render-Auftrag angelegt.'));
   }
-
-  if (!(await project.SetRenderSettings(settings))) {
-    throw new Error(t('Die Render-Einstellungen ließen sich nicht setzen.'));
-  }
-
-  const jobId = await project.AddRenderJob();
-  if (!jobId) throw new Error(t('Resolve hat keinen Render-Auftrag angelegt.'));
 
   if (!(await project.StartRendering(jobId))) {
     await project.DeleteRenderJob(jobId);
@@ -381,7 +508,7 @@ async function renderTimeline({ preset, targetDir, clipName, markIn, markOut, on
     );
   }
 
-  return { jobId, status: state };
+  return { jobId, status: state, bereich: benutzterBereich };
 }
 
 /* ------------------------------------------------------- Spuren und Clips */

@@ -14,6 +14,7 @@ const path = require('node:path');
 const api = require('./api.js');
 const archive = require('./archive.js');
 const dateiname = require('./dateiname.js');
+const frames = require('./frames.js');
 const config = require('./config.js');
 const { t } = require('./i18n.js');
 const mapping = require('./mapping.js');
@@ -354,15 +355,40 @@ async function run(options, onProgress = () => {}) {
       Number.isFinite(context.markOut) &&
       context.markOut > context.markIn;
 
+    // In welcher Zählweise `SetRenderSettings` MarkIn/MarkOut erwartet, ist
+    // nicht dokumentiert – deshalb bekommt Resolve die Kandidaten und sagt
+    // selbst, welcher angekommen ist.
+    const bereich = useRange
+      ? {
+          kandidaten: frames.renderBereichKandidaten({
+            rohVon: context.markInRaw,
+            rohBis: context.markOutRaw,
+            relativVon: context.markIn,
+            relativBis: context.markOut,
+            startFrame: context.startFrame,
+          }),
+        }
+      : null;
+
+    if (useRange) {
+      onProgress({
+        phase: 'render',
+        percent: 0,
+        text: t('Bereich {von}–{bis} ({anzahl} Frames) wird ausgespielt …', {
+          von: context.markIn,
+          bis: context.markOut,
+          anzahl: context.markOut - context.markIn,
+        }),
+      });
+    }
+
+    let renderErgebnis = null;
     try {
-      await resolve.renderTimeline({
+      renderErgebnis = await resolve.renderTimeline({
         preset: options.preset,
         targetDir: dir,
         clipName,
-        // Render-Einstellungen rechnen absolut (wie `GetStartFrame()`), die
-        // Marker-Mathematik relativ – deshalb hier die absoluten Werte.
-        markIn: useRange ? context.markInAbsolute : undefined,
-        markOut: useRange ? context.markOutAbsolute : undefined,
+        bereich,
         onProgress: (percent) =>
           onProgress({
             phase: 'render',
@@ -448,6 +474,19 @@ async function run(options, onProgress = () => {}) {
     const nachtraege = [];
     let version = null;
     let entry = null;
+
+    // Welcher Bereich tatsächlich ausgespielt wurde, gehört ins Ergebnis.
+    // Konnte Resolve ihn nicht bestätigen, ist das eine Warnung: Ein Master,
+    // der die ganze Timeline enthält statt der dreißig Sekunden, fällt sonst
+    // erst auf, wenn er als Fassung beim Kunden steht.
+    if (renderErgebnis?.bereich && renderErgebnis.bereich.geprueft === false) {
+      nachtraege.push(
+        t('Resolve nennt den Bereich seiner Aufträge nicht – ob wirklich nur {von}–{bis} ausgespielt wurde, ist ungeprüft.', {
+          von: context.markIn,
+          bis: context.markOut,
+        }),
+      );
+    }
 
     if (laedtHoch) {
       const startedAt = Date.now();
@@ -580,6 +619,9 @@ async function run(options, onProgress = () => {}) {
       nachtraege,
       webUrl: version?.webUrl ? `${api.baseUrl()}${version.webUrl}` : '',
       file: { path: rendered.path, size: rendered.size },
+      bereich: useRange
+        ? { von: context.markIn, bis: context.markOut, art: renderErgebnis?.bereich?.art || '' }
+        : null,
     };
   } catch (error) {
     // Eine angefangene Sitzung wegräumen, wenn wir sie nicht fortsetzen

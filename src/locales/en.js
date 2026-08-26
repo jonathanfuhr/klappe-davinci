@@ -29,6 +29,20 @@ module.exports = {
   'Resolve ist nicht erreichbar.': 'Resolve cannot be reached.',
   'In/Out gesetzt ({von}–{bis})': 'In/out set ({von}–{bis})',
   'ganze Timeline': 'whole timeline',
+  'ganze Timeline (Resolve nennt kein In/Out)': 'whole timeline (Resolve reports no in/out)',
+  'Bereich {von}–{bis} ({anzahl} Frames) wird ausgespielt …':
+    'Rendering the range {von}–{bis} ({anzahl} frames) …',
+  'Ausgespielt wurde der Bereich {von}–{bis} ({anzahl} Frames).':
+    'The range {von}–{bis} ({anzahl} frames) was rendered.',
+  'Resolve nennt den Bereich seiner Aufträge nicht – ob wirklich nur {von}–{bis} ausgespielt wurde, ist ungeprüft.':
+    'Resolve does not report the range of its jobs – whether only {von}–{bis} was really rendered is unverified.',
+  'Der In/Out-Bereich ließ sich nicht setzen – es wurde nichts ausgespielt. {details}':
+    'The in/out range could not be set – nothing was rendered. {details}',
+  'Resolve meldet {von}–{bis} statt {sollVon}–{sollBis}.':
+    'Resolve reports {von}–{bis} instead of {sollVon}–{sollBis}.',
+  'Resolve hat die Einstellungen abgelehnt.': 'Resolve rejected the settings.',
+  'Resolve hat keinen Auftrag angelegt.': 'Resolve did not create a job.',
+
   '{rate} fps': '{rate} fps',
   Aktualisieren: 'Refresh',
   'Projekt und Timeline neu einlesen': 'Read project and timeline again',

@@ -195,6 +195,19 @@ bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
 - **Bereich:** ab Werk wie in Resolve – In/Out, wenn gesetzt, sonst die ganze
   Timeline. Der verwendete Bereich wandert in die Zuordnung; er ist der
   Frame-Offset für Marker und Overlays.
+
+  > **Welche Zahlen Resolve für den Bereich will, sagt es selbst.** Die
+  > Scripting-Doku beschreibt `MarkIn`/`MarkOut` nur als „int" – ob ab
+  > Timeline-Anfang gezählt oder inklusive Start-Timecode, steht nirgends. Das
+  > Plugin schickt deshalb der Reihe nach die Zahlen, die `GetMarkInOut()`
+  > gemeldet hat, dann die relative und dann die absolute Lesart, legt jeweils
+  > einen Render-Auftrag an und **liest ihn zurück**: Nur wenn Resolve den
+  > Bereich bestätigt, wird gerendert. Was sich bewährt hat, gilt für den Rest
+  > der Sitzung.
+  >
+  > Bestätigt Resolve keine der Varianten, bricht der Lauf **vor** dem Rendern
+  > ab. Ein Master, der die ganze Timeline enthält statt der dreißig Sekunden,
+  > fällt sonst erst auf, wenn er als Fassung beim Kunden steht.
 - **Fassung ersetzen:** ein Schritt. Die alte Fassung derselben Nummer weicht
   beim Abschluss in einer Transaktion. **Achtung:** Ihre Kommentare
   verschwinden mit ihr – sie hängen an Frames eines Ausspielens, das es dann

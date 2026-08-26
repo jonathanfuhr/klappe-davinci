@@ -298,6 +298,11 @@ function zeichneKontext() {
   const teile = [];
   if (Number.isFinite(context.markIn) && Number.isFinite(context.markOut)) {
     teile.push(t('In/Out gesetzt ({von}–{bis})', { von: context.markIn, bis: context.markOut }));
+  } else if (context.markInOutQuelle === 'keine-methode') {
+    // Nicht dasselbe wie „kein In/Out gesetzt": Diese Resolve-Fassung kennt
+    // `GetMarkInOut()` nicht, und dann ist ein Bereichsexport aus dem Panel
+    // heraus grundsätzlich nicht möglich. Das gehört gesagt.
+    teile.push(t('ganze Timeline (Resolve nennt kein In/Out)'));
   } else {
     teile.push(t('ganze Timeline'));
   }
@@ -1062,6 +1067,20 @@ function zeigeUploadErgebnis(ergebnis) {
 
   for (const hinweis of ergebnis.nachtraege || []) {
     karte.appendChild(textKnoten('div', 'warnung', hinweis));
+  }
+
+  if (ergebnis.bereich) {
+    karte.appendChild(
+      textKnoten(
+        'div',
+        'klein',
+        t('Ausgespielt wurde der Bereich {von}–{bis} ({anzahl} Frames).', {
+          von: ergebnis.bereich.von,
+          bis: ergebnis.bereich.bis,
+          anzahl: ergebnis.bereich.bis - ergebnis.bereich.von,
+        }),
+      ),
+    );
   }
 
   if (ergebnis.ablage) {

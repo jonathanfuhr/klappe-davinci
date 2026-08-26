@@ -71,8 +71,17 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Upload einer kurzen Timeline in ein Testvideo läuft durch, Fortschritt
       zählt hoch
 - [ ] **Im Browser öffnen** landet auf genau dieser Fassung
-- [ ] Mit gesetztem In/Out wird nur der Bereich ausgespielt; die Zuordnung
+- [ ] Mit gesetztem In/Out wird **nur der Bereich** ausgespielt; die Zuordnung
       merkt sich den Render-Anfang
+- [ ] Der Kopf des Panels zeigt „In/Out gesetzt (von–bis)" – steht dort
+      „ganze Timeline (Resolve nennt kein In/Out)", kennt diese Resolve-Fassung
+      `GetMarkInOut()` nicht und ein Bereichsexport ist nicht möglich
+- [ ] Vor dem Rendern steht die Bereichsmeldung in der Statuszeile, im Ergebnis
+      danach „Ausgespielt wurde der Bereich …"
+- [ ] Auch bei einer Timeline ab **01:00:00:00** stimmt der Bereich (das war
+      der Fehler: eine Stunde Versatz, den Resolve stillschweigend verwarf)
+- [ ] Lässt sich der Bereich gar nicht setzen, bricht der Lauf **vor** dem
+      Rendern ab – statt heimlich die ganze Timeline hochzuladen
 - [ ] „Immer die ganze Timeline" ignoriert ein gesetztes In/Out
 - [ ] **Neues Video anlegen** funktioniert und wird gleich zum Ziel
 - [ ] Die Projekte stehen als `2601_Kunde_Kampagne` in der Liste – im

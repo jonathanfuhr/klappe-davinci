@@ -89,3 +89,69 @@ describe('Die drei Zählweisen', () => {
     expect(frames.commentFrameToTimecode(25, { fps: 'Unsinn' })).toBeNull();
   });
 });
+
+describe('Kandidaten für den Render-Bereich', () => {
+  it('bietet bei einer Timeline ab 01:00:00:00 beide Zählweisen an', () => {
+    // Genau hier lag der Fehler: Abgeschickt wurde nur die absolute Zahl.
+    // Meint Resolve die relative, liegt sie eine Stunde hinter dem Ende der
+    // Timeline – und Resolve spielt stillschweigend alles aus.
+    const kandidaten = frames.renderBereichKandidaten({
+      rohVon: 1500,
+      rohBis: 2250,
+      relativVon: 1500,
+      relativBis: 2250,
+      startFrame: 90000,
+    });
+
+    expect(kandidaten).toEqual([
+      { art: 'gemeldet', von: 1500, bis: 2250 },
+      { art: 'absolut', von: 91500, bis: 92250 },
+    ]);
+  });
+
+  it('führt denselben Bereich nur einmal auf', () => {
+    // Timeline ab 00:00:00:00: Alle drei Zählweisen sind dieselbe Zahl.
+    const kandidaten = frames.renderBereichKandidaten({
+      rohVon: 100,
+      rohBis: 200,
+      relativVon: 100,
+      relativBis: 200,
+      startFrame: 0,
+    });
+    expect(kandidaten).toHaveLength(1);
+    expect(kandidaten[0]).toEqual({ art: 'gemeldet', von: 100, bis: 200 });
+  });
+
+  it('nimmt die rohe Zahl zuerst – sie kommt aus derselben Resolve-Fassung', () => {
+    const kandidaten = frames.renderBereichKandidaten({
+      rohVon: 91500,
+      rohBis: 92250,
+      relativVon: 1500,
+      relativBis: 2250,
+      startFrame: 90000,
+    });
+    expect(kandidaten[0]).toEqual({ art: 'gemeldet', von: 91500, bis: 92250 });
+    expect(kandidaten.map((k) => k.art)).toContain('relativ');
+  });
+
+  it('wirft weg, was kein Bereich ist', () => {
+    expect(
+      frames.renderBereichKandidaten({
+        rohVon: 500,
+        rohBis: 500,
+        relativVon: 500,
+        relativBis: 500,
+        startFrame: 0,
+      }),
+    ).toEqual([]);
+    expect(
+      frames.renderBereichKandidaten({
+        rohVon: Number.NaN,
+        rohBis: Number.NaN,
+        relativVon: Number.NaN,
+        relativBis: Number.NaN,
+        startFrame: 0,
+      }),
+    ).toEqual([]);
+  });
+});
