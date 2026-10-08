@@ -328,8 +328,8 @@ module.exports = {
     'Render and upload several timelines one after another. Each brings its own in/out. They are rendered one at a time – Resolve does not compute two at once, which would be slower, not faster.',
   'Timelines einlesen': 'Read timelines',
   'Projekt in Klappe': 'Project in Klappe',
-  'Ein Stapel gehört in ein Projekt. Je Timeline wird darunter das Video gewählt – oder eins neu angelegt, dann heißt es wie die Timeline.':
-    'A batch belongs to one project. The video is chosen per timeline below – or created anew, in which case it is named after the timeline.',
+  'Ein Stapel gehört in ein Projekt. Je Timeline wird darunter das Video gewählt – oder eins neu angelegt, dann steht der Timeline-Name als Vorschlag im Namensfeld. Die Fassungsnummer daneben darf leer bleiben, dann zählt Klappe weiter.':
+    'A batch belongs to one project. The video is chosen per timeline below – or created anew, in which case the timeline name is offered as a suggestion in the name field. The version number next to it may stay empty, then Klappe counts on.',
   'Alle als Endfassung': 'All as final versions',
   'Stapel starten': 'Start batch',
   'Für den Stapel ist keine Timeline ausgewählt.': 'No timeline is selected for the batch.',
@@ -341,7 +341,13 @@ module.exports = {
     '{anzahl} timelines in the Resolve project “{projekt}”.',
   'In/Out {von}–{bis} ({anzahl} Frames)': 'In/out {von}–{bis} ({anzahl} frames)',
   'ganze Timeline ({anzahl} Frames)': 'whole timeline ({anzahl} frames)',
-  'neues Video „{name}"': 'new video “{name}”',
+  'neues Video': 'new video',
+  'Name des neuen Videos': 'Name of the new video',
+  'Nr.': 'No.',
+  'Fassungsnummer – leer heißt: Klappe zählt weiter':
+    'Version number – empty means Klappe counts on',
+  'Für „{timeline}" fehlt der Name des neuen Videos.':
+    'The name of the new video is missing for “{timeline}”.',
   '{anzahl} Timelines ausspielen?': 'Render {anzahl} timelines?',
   'Das läuft eine nach der anderen und kann lange dauern. Abbrechen hält nach der laufenden Timeline an.':
     'They run one after another and this can take a while. Cancelling stops after the current timeline.',

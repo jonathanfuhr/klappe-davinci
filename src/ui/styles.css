@@ -512,15 +512,25 @@ button.leise {
   word-break: break-word;
 }
 
-/* Eine Stapel-Zeile: Haken und Name links, der Bereich dazwischen, die
-   Videoauswahl rechts. Auf schmalen Panels bricht sie um, statt zu quetschen. */
+/* Eine Stapel-Zeile hat zwei Zeilen: oben, was ausgespielt wird, darunter,
+   wohin. Nebeneinander passen Auswahl, Name und Nummer in einem Panel von
+   400 Pixeln nicht mehr. */
 .stapelzeile {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stapelkopf,
+.stapelziel {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.45rem;
   align-items: center;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stapelziel {
+  margin-top: 0.35rem;
+  padding-left: 1.4rem; /* unter den Haken eingerückt */
 }
 
 .stapelname {
@@ -538,7 +548,18 @@ button.leise {
   white-space: nowrap;
 }
 
-.stapelzeile select {
-  flex: 0 1 14rem;
+.stapelziel select {
+  flex: 1 1 8rem;
   min-width: 0;
+}
+
+.stapelneu {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+/* Die Nummer braucht wenig Platz und soll ihn auch nicht nehmen. */
+.stapelnummer {
+  flex: 0 0 4.5rem;
+  width: 4.5rem;
 }

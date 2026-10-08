@@ -687,6 +687,9 @@ async function zeichneStapelListe() {
   for (const timeline of stapelZeilen) {
     const zeile = textKnoten('li', 'stapelzeile');
 
+    /* Erste Zeile: was ausgespielt wird ------------------------------- */
+    const kopf = textKnoten('div', 'stapelkopf');
+
     const haken = document.createElement('input');
     haken.type = 'checkbox';
     haken.checked = Boolean(timeline.gewaehlt);
@@ -709,21 +712,63 @@ async function zeichneStapelListe() {
           })
         : t('ganze Timeline ({anzahl} Frames)', { anzahl: timeline.frameCount });
 
+    kopf.appendChild(beschriftung);
+    kopf.appendChild(textKnoten('span', 'klein', bereich));
+
+    /* Zweite Zeile: wohin ---------------------------------------------- */
+    // Zwei Zeilen, weil es sonst zu eng wird: Auswahl, Name und Nummer
+    // nebeneinander passen in einem Panel von 400 Pixeln nicht mehr.
+    const ziel = textKnoten('div', 'stapelziel');
+
     const auswahl = document.createElement('select');
-    auswahl.appendChild(option('__neu__', `➕ ${t('neues Video „{name}"', { name: timeline.name })}`));
+    auswahl.appendChild(option('__neu__', `➕ ${t('neues Video')}`));
     for (const video of videos) auswahl.appendChild(option(video.id, video.name));
     // Ist die Timeline schon zugeordnet, zeigt sie von selbst auf ihr Video.
     if (timeline.videoId && [...auswahl.options].some((e) => e.value === timeline.videoId)) {
       auswahl.value = timeline.videoId;
     }
+
+    // Der Name des neuen Videos: Der Timeline-Name ist nur der **Vorschlag**.
+    // Timelines heißen „Teaser_v4b_FINAL2"; das Video in Klappe soll „Teaser"
+    // heißen dürfen, ohne dass dafür die Timeline umbenannt werden muss.
+    const nameFeld = document.createElement('input');
+    nameFeld.type = 'text';
+    nameFeld.className = 'stapelneu';
+    nameFeld.placeholder = t('Name des neuen Videos');
+    nameFeld.value = timeline.neuerName ?? timeline.name;
+    nameFeld.addEventListener('input', () => {
+      timeline.neuerName = nameFeld.value;
+    });
+
+    const nummerFeld = document.createElement('input');
+    nummerFeld.type = 'number';
+    nummerFeld.className = 'stapelnummer';
+    nummerFeld.min = '1';
+    nummerFeld.step = '0.5';
+    nummerFeld.placeholder = t('Nr.');
+    nummerFeld.title = t('Fassungsnummer – leer heißt: Klappe zählt weiter');
+    if (Number.isFinite(timeline.nummer)) nummerFeld.value = String(timeline.nummer);
+    nummerFeld.addEventListener('input', () => {
+      const wert = Number(nummerFeld.value);
+      timeline.nummer = nummerFeld.value.trim() && wert > 0 ? wert : null;
+    });
+
+    const zeigeNamensfeld = () => {
+      nameFeld.classList.toggle('versteckt', auswahl.value !== '__neu__');
+    };
     auswahl.addEventListener('change', () => {
       timeline.zielVideo = auswahl.value;
+      zeigeNamensfeld();
     });
     timeline.zielVideo = auswahl.value;
+    zeigeNamensfeld();
 
-    zeile.appendChild(beschriftung);
-    zeile.appendChild(textKnoten('span', 'klein', bereich));
-    zeile.appendChild(auswahl);
+    ziel.appendChild(auswahl);
+    ziel.appendChild(nameFeld);
+    ziel.appendChild(nummerFeld);
+
+    zeile.appendChild(kopf);
+    zeile.appendChild(ziel);
     liste.appendChild(zeile);
   }
 }
@@ -793,7 +838,18 @@ async function starteStapel() {
     let videoName = '';
 
     if (videoId === '__neu__') {
-      const video = await aufruf(window.klappe.createVideo(projectId, timeline.name));
+      const wunschname = (timeline.neuerName ?? timeline.name).trim();
+      if (!wunschname) {
+        status(
+          t('Für „{timeline}" fehlt der Name des neuen Videos.', { timeline: timeline.name }),
+          'fehler',
+        );
+        zustand.laueftStapel = false;
+        el('stapel-start').disabled = false;
+        return;
+      }
+
+      const video = await aufruf(window.klappe.createVideo(projectId, wunschname));
       if (!video) {
         zustand.laueftStapel = false;
         el('stapel-start').disabled = false;
@@ -816,6 +872,10 @@ async function starteStapel() {
         videoId,
         videoName,
         customer: kunde,
+        // Eine eingetragene Nummer gilt; leer heißt „Klappe zählt weiter" –
+        // dann holt der Stapel sie sich vor dem Rendern frisch, weil sie in
+        // den Dateinamen wandert.
+        versionNumber: Number.isFinite(timeline.nummer) ? timeline.nummer : undefined,
         nextVersionNumber: 1,
         preset,
         wholeTimeline: el('stapel-bereich').value === 'ganz',

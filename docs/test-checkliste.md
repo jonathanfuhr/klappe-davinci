@@ -111,7 +111,17 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       Timeline mit Frame-Anzahl)
 - [ ] **Alle** / **Keine** wirken
 - [ ] Eine schon zugeordnete Timeline zeigt von selbst auf ihr Video
-- [ ] „neues Video" legt es an und benennt es nach der Timeline
+- [ ] „neues Video" zeigt ein Namensfeld mit dem Timeline-Namen als Vorschlag;
+      ein **geänderter** Name wird auch so angelegt
+- [ ] Ein leeres Namensfeld bei „neues Video" → Meldung statt Start
+- [ ] Die Namensfelder sind nur bei „neues Video" zu sehen
+- [ ] **Fassungsnummer** leer → Klappe zählt weiter; eingetragen → genau die
+      Nummer, auch im Dateinamen
+- [ ] Nachkommastellen (`2.5`) gehen durch und stehen als `v2-5` im Dateinamen
+- [ ] Eine schon vergebene Nummer lässt **nur diese Zeile** scheitern, mit der
+      Meldung „Nummer ist schon vergeben" – der Stapel läuft weiter
+- [ ] Name und Nummer überleben einen Wechsel des Klappe-Projekts (die Zeilen
+      werden neu gezeichnet, die Eingaben bleiben)
 - [ ] Ein Wechsel des Klappe-Projekts baut die Videoauswahl aller Zeilen neu
 - [ ] Ohne Auswahl, ohne Preset oder ohne Projekt gibt es eine Meldung statt
       eines Starts

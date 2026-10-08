@@ -806,7 +806,9 @@ async function runBatch(auftraege, onProgress = () => {}) {
         // können Stunden liegen. Für ein frisch angelegtes Video kommt eine
         // leere Liste zurück – dann ist es die v1.
         let nummer = auftrag.ziel.nextVersionNumber;
-        if (auftrag.ziel.upload !== false) {
+        // Eine im Stapel eingetragene Nummer ist eine Entscheidung – die wird
+        // nicht nachgerechnet.
+        if (auftrag.ziel.upload !== false && !Number.isFinite(auftrag.ziel.versionNumber)) {
           try {
             const vorhandene = await versions(auftrag.ziel.videoId);
             nummer =

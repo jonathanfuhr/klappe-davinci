@@ -306,9 +306,20 @@ Zeile mit dem Bereich, der ausgespielt würde (`GetMarkInOut()` lässt sich an
 jeder Timeline fragen, nicht nur an der aktiven – deshalb muss man nicht
 zehnmal umschalten, um zu sehen, was passieren wird).
 
-Angehakt wird, was mitsoll; je Zeile steht daneben das **Video in Klappe** oder
-„neues Video" – dann heißt es wie die Timeline. Ist eine Timeline schon
-zugeordnet, zeigt sie von selbst auf ihr Video.
+Angehakt wird, was mitsoll; darunter steht je Zeile das **Video in Klappe**,
+daneben die **Fassungsnummer**. Ist eine Timeline schon zugeordnet, zeigt sie
+von selbst auf ihr Video.
+
+Bei „neues Video" erscheint ein **Namensfeld** mit dem Timeline-Namen als
+Vorschlag. Nur als Vorschlag: Timelines heißen `Teaser_v4b_FINAL2`, und das
+Video in Klappe soll `Teaser` heißen dürfen, ohne dass dafür erst die Timeline
+umbenannt werden muss.
+
+Die **Fassungsnummer** darf leer bleiben – dann zählt Klappe weiter, und der
+Stapel holt sich die Nummer direkt vor dem Rendern (sie steht im Dateinamen).
+Eine eingetragene Nummer gilt; Nachkommastellen sind erlaubt (`2.5`). Ist sie
+schon vergeben, scheitert **diese eine** Zeile mit einer klaren Meldung – der
+Stapel läuft weiter.
 
 **Ein Projekt für den ganzen Stapel.** Das ist eine bewusste Vereinfachung: Eine
 Projektauswahl in jeder Zeile wäre nicht nur unübersichtlich, sie wäre auch eine
