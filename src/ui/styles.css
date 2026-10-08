@@ -496,3 +496,49 @@ button.leise {
 .nur-mit-upload {
   display: none !important;
 }
+
+/* Diagnose-Bericht: Der wird kopiert und weitergegeben, deshalb Festbreite
+   und umbruchfähig statt waagerecht scrollend. */
+.bericht {
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.6rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Eine Stapel-Zeile: Haken und Name links, der Bereich dazwischen, die
+   Videoauswahl rechts. Auf schmalen Panels bricht sie um, statt zu quetschen. */
+.stapelzeile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stapelname {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  flex: 1 1 12rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.stapelname span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stapelzeile select {
+  flex: 0 1 14rem;
+  min-width: 0;
+}

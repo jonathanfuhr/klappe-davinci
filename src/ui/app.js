@@ -118,6 +118,8 @@ const zustand = {
   /** Presets aus Resolve, schon in Standard und Eigene geteilt. */
   presets: { alle: [], standard: [], eigene: [], sichtbare: [] },
   laueftUpload: false,
+  /** Läuft ein Stapel? Dann darf weder ein Einzel-Upload noch ein Neuladen dazwischen. */
+  laueftStapel: false,
 };
 
 /* ---------------------------------------------------------------- Helfer */
@@ -587,7 +589,400 @@ function renderAnfangAusInOut() {
   status(t('Render-Anfang auf Frame {frame} gesetzt.', { frame: context.markIn }));
 }
 
+/* ---------------------------------------------------------------- Stapel */
+
+/**
+ * Stapel-Export: mehrere Timelines hintereinander.
+ *
+ * Die Aufteilung folgt der Wirklichkeit im Haus: **Ein Projekt für den ganzen
+ * Stapel**, je Timeline ein Video. Eine Projektauswahl in jeder Zeile wäre
+ * nicht nur unübersichtlich, sie wäre auch eine Anfrage je Zeile, nur um die
+ * Videoliste zu füllen. Wer in zwei Projekte ausspielen will, macht zwei
+ * Stapel – das kommt seltener vor als der Fall, für den das hier gebaut ist.
+ */
+let stapelZeilen = [];
+/** Die Videos des gewählten Klappe-Projekts – einmal geholt, von allen Zeilen benutzt. */
+let stapelVideoListe = [];
+/** Schon einmal eingelesen? Dann bleibt die Auswahl beim Reiterwechsel stehen. */
+let stapelGeladen = false;
+
+async function ladeStapel() {
+  if (!zustand.hasToken) {
+    status(t('Erst verbinden (Einstellungen).'), 'fehler');
+    return;
+  }
+
+  const liste = (await ladePresets()).sichtbare;
+  if (liste.length > 0) {
+    const feld = el('stapel-preset');
+    const vorher = feld.value || zustand.settings?.defaultPreset || '';
+    feld.textContent = '';
+    for (const name of liste) feld.appendChild(option(name, name));
+    if (vorher && [...feld.options].some((eintrag) => eintrag.value === vorher)) {
+      feld.value = vorher;
+    }
+  }
+
+  if (!el('stapel-ablage').dataset.beruehrt) {
+    const vorgabe = zustand.settings?.archiveDir || '';
+    el('stapel-ablage').value = vorgabe;
+    el('stapel-ablage-an').checked = Boolean(vorgabe);
+    zeigeStapelAblage();
+  }
+
+  if (el('stapel-ziel-projekt').options.length === 0) {
+    await fuelleProjekte(el('stapel-ziel-projekt'), zustand.mapping?.projectId);
+  }
+
+  // Nur beim ersten Öffnen von selbst einlesen: Wer zehn Haken gesetzt hat und
+  // kurz in die Einstellungen schaut, soll sie wiederfinden. Zum Auffrischen
+  // steht „Timelines einlesen" da.
+  if (!stapelGeladen) await ladeStapelTimelines();
+}
+
+function zeigeStapelAblage() {
+  el('stapel-ablage-zeile').classList.toggle('versteckt', !el('stapel-ablage-an').checked);
+}
+
+/** Die Timelines aus Resolve holen und als Liste zeichnen. */
+async function ladeStapelTimelines() {
+  const daten = await aufruf(window.klappe.stapelTimelines());
+  if (!daten) return;
+  if (!daten.ok) {
+    el('stapel-projekt').textContent = daten.reason || '';
+    stapelZeilen = [];
+    el('stapel-liste').textContent = '';
+    return;
+  }
+
+  stapelZeilen = daten.timelines || [];
+  stapelGeladen = true;
+  el('stapel-projekt').textContent = t('{anzahl} Timelines im Resolve-Projekt „{projekt}".', {
+    anzahl: stapelZeilen.length,
+    projekt: daten.projectName,
+  });
+
+  // Die aktive Timeline ist vorangehakt: Wer den Reiter öffnet, hat meistens
+  // genau die im Blick und nimmt die anderen dazu.
+  for (const timeline of stapelZeilen) {
+    timeline.gewaehlt = timeline.id === daten.aktuellId;
+  }
+
+  await zeichneStapelListe();
+}
+
+/** Die Videos des gewählten Klappe-Projekts – einmal für alle Zeilen. */
+async function stapelVideos() {
+  const projectId = el('stapel-ziel-projekt').value;
+  if (!projectId || projectId === '__neu__') return [];
+  return (await aufruf(window.klappe.videos(projectId), { still: true })) || [];
+}
+
+async function zeichneStapelListe() {
+  const liste = el('stapel-liste');
+  liste.textContent = '';
+  const videos = await stapelVideos();
+  stapelVideoListe = videos;
+
+  for (const timeline of stapelZeilen) {
+    const zeile = textKnoten('li', 'stapelzeile');
+
+    const haken = document.createElement('input');
+    haken.type = 'checkbox';
+    haken.checked = Boolean(timeline.gewaehlt);
+    haken.addEventListener('change', () => {
+      timeline.gewaehlt = haken.checked;
+    });
+
+    const beschriftung = textKnoten('label', 'stapelname');
+    beschriftung.appendChild(haken);
+    beschriftung.appendChild(textKnoten('span', '', timeline.name));
+
+    // Was ausgespielt würde, steht hier – das ist der Grund, die Timelines
+    // überhaupt aufzulisten, statt blind alle zu nehmen.
+    const bereich =
+      Number.isFinite(timeline.markIn) && Number.isFinite(timeline.markOut)
+        ? t('In/Out {von}–{bis} ({anzahl} Frames)', {
+            von: timeline.markIn,
+            bis: timeline.markOut,
+            anzahl: timeline.markOut - timeline.markIn,
+          })
+        : t('ganze Timeline ({anzahl} Frames)', { anzahl: timeline.frameCount });
+
+    const auswahl = document.createElement('select');
+    auswahl.appendChild(option('__neu__', `➕ ${t('neues Video „{name}"', { name: timeline.name })}`));
+    for (const video of videos) auswahl.appendChild(option(video.id, video.name));
+    // Ist die Timeline schon zugeordnet, zeigt sie von selbst auf ihr Video.
+    if (timeline.videoId && [...auswahl.options].some((e) => e.value === timeline.videoId)) {
+      auswahl.value = timeline.videoId;
+    }
+    auswahl.addEventListener('change', () => {
+      timeline.zielVideo = auswahl.value;
+    });
+    timeline.zielVideo = auswahl.value;
+
+    zeile.appendChild(beschriftung);
+    zeile.appendChild(textKnoten('span', 'klein', bereich));
+    zeile.appendChild(auswahl);
+    liste.appendChild(zeile);
+  }
+}
+
+function alleStapel(gewaehlt) {
+  for (const timeline of stapelZeilen) timeline.gewaehlt = gewaehlt;
+  for (const haken of el('stapel-liste').querySelectorAll('input[type="checkbox"]')) {
+    haken.checked = gewaehlt;
+  }
+}
+
+/**
+ * Den Stapel starten.
+ *
+ * Neue Videos werden **vorher** angelegt, nicht im Lauf: Wenn der Server dabei
+ * zickt, soll das auffallen, bevor eine halbe Stunde gerendert wurde.
+ */
+async function starteStapel() {
+  if (zustand.laueftStapel || zustand.laueftUpload) return;
+
+  const gewaehlte = stapelZeilen.filter((timeline) => timeline.gewaehlt);
+  if (gewaehlte.length === 0) {
+    status(t('Für den Stapel ist keine Timeline ausgewählt.'), 'fehler');
+    return;
+  }
+
+  const preset = el('stapel-preset').value;
+  if (!preset) {
+    status(t('Es ist kein Render-Preset gewählt.'), 'fehler');
+    return;
+  }
+
+  const laedtHoch = el('stapel-upload-an').checked;
+  const archiveDir = el('stapel-ablage-an').checked ? el('stapel-ablage').value.trim() : '';
+  if (!laedtHoch && !archiveDir) {
+    status(t('Ohne Upload und ohne lokale Ablage bliebe vom Rendern nichts übrig.'), 'fehler');
+    return;
+  }
+  if (el('stapel-ablage-an').checked && !archiveDir) {
+    status(t('Für die lokale Ablage fehlt der Ordner.'), 'fehler');
+    return;
+  }
+
+  const projectId = el('stapel-ziel-projekt').value;
+  const projectName = el('stapel-ziel-projekt').selectedOptions[0]?.dataset.name || '';
+  const kunde = el('stapel-ziel-projekt').selectedOptions[0]?.dataset.kunde || '';
+  if (!projectId || projectId === '__neu__') {
+    status(t('Für den Stapel fehlt das Projekt in Klappe.'), 'fehler');
+    return;
+  }
+
+  const sicher = window.confirm(
+    `${t('{anzahl} Timelines ausspielen?', { anzahl: gewaehlte.length })}\n\n${t(
+      'Das läuft eine nach der anderen und kann lange dauern. Abbrechen hält nach der laufenden Timeline an.',
+    )}`,
+  );
+  if (!sicher) return;
+
+  zustand.laueftStapel = true;
+  el('stapel-start').disabled = true;
+  el('stapel-ergebnis').classList.add('versteckt');
+
+  // Erst die Videos, dann der Stapel – siehe oben.
+  const auftraege = [];
+  for (const timeline of gewaehlte) {
+    let videoId = timeline.zielVideo;
+    let videoName = '';
+
+    if (videoId === '__neu__') {
+      const video = await aufruf(window.klappe.createVideo(projectId, timeline.name));
+      if (!video) {
+        zustand.laueftStapel = false;
+        el('stapel-start').disabled = false;
+        return;
+      }
+      videoId = video.id;
+      videoName = video.name;
+      projekteGeladen = false;
+    } else {
+      videoName = stapelVideoListe.find((video) => video.id === videoId)?.name || '';
+    }
+
+    auftraege.push({
+      timelineId: timeline.id,
+      timelineName: timeline.name,
+      ziel: {
+        upload: laedtHoch,
+        projectId,
+        projectName,
+        videoId,
+        videoName,
+        customer: kunde,
+        nextVersionNumber: 1,
+        preset,
+        wholeTimeline: el('stapel-bereich').value === 'ganz',
+        archiveDir,
+        isFinal: el('stapel-final').checked,
+        // Im Stapel wird nichts an der KI-Kennzeichnung gedreht: Sie hängt am
+        // Video und gilt für alle Fassungen – das gehört in den Einzeldialog,
+        // wo man den Stand des Videos vor sich hat.
+        aiContent: undefined,
+      },
+    });
+  }
+
+  el('stapel-abbruch').classList.remove('versteckt');
+  el('stapel-fortschritt').classList.remove('versteckt');
+  el('stapel-balken').style.width = '0%';
+
+  const ergebnis = await aufruf(window.klappe.stapelRun(auftraege));
+
+  zustand.laueftStapel = false;
+  el('stapel-start').disabled = false;
+  el('stapel-abbruch').classList.add('versteckt');
+  el('stapel-fortschritt').classList.add('versteckt');
+
+  if (ergebnis) zeigeStapelErgebnis(ergebnis);
+  await ladeZustand();
+}
+
+function zeigeStapelErgebnis(ergebnis) {
+  const karte = el('stapel-ergebnis');
+  karte.textContent = '';
+  karte.classList.remove('versteckt');
+
+  karte.appendChild(
+    textKnoten(
+      'strong',
+      '',
+      t('{gelungen} von {anzahl} Timelines fertig{abbruch}.', {
+        gelungen: ergebnis.gelungen,
+        anzahl: ergebnis.ergebnisse.length,
+        abbruch: ergebnis.abgebrochen ? t(' (abgebrochen)') : '',
+      }),
+    ),
+  );
+
+  for (const eintrag of ergebnis.ergebnisse) {
+    const zeile = textKnoten('div', eintrag.ok ? 'klein' : 'warnung');
+    zeile.textContent = eintrag.ok
+      ? t('✓ {name} → Fassung {nummer}', {
+          name: eintrag.timelineName,
+          nummer: eintrag.versionNumber ?? '–',
+        })
+      : t('✗ {name}: {grund}', { name: eintrag.timelineName, grund: eintrag.reason });
+    karte.appendChild(zeile);
+
+    for (const hinweis of eintrag.nachtraege || []) {
+      karte.appendChild(textKnoten('div', 'warnung', `   ${hinweis}`));
+    }
+  }
+
+  status(
+    ergebnis.gelungen === ergebnis.ergebnisse.length
+      ? t('Stapel fertig.')
+      : t('Stapel beendet – nicht alles ist durchgelaufen.'),
+    ergebnis.gelungen === ergebnis.ergebnisse.length ? 'gut' : 'fehler',
+  );
+}
+
+/* --------------------------------------------------------------- Diagnose */
+
+/**
+ * Den Bereichs-Bericht holen und anzeigen.
+ *
+ * Zweimal habe ich den In/Out-Export auf Vermutungen hin geändert, zweimal
+ * ohne Erfolg. Statt ein drittes Mal zu raten, sammelt das Panel ein, was
+ * Resolve wörtlich zurückgibt – der Bericht lässt sich kopieren und
+ * weitergeben.
+ */
+async function diagnoseBereich() {
+  const ausgabe = el('diagnose-ausgabe');
+  ausgabe.classList.remove('versteckt');
+  ausgabe.textContent = t('wird geprüft …');
+
+  const bericht = await aufruf(
+    window.klappe.diagnoseBereich({ preset: el('preset').value || '' }),
+  );
+  if (!bericht) {
+    ausgabe.textContent = t('Die Diagnose ist fehlgeschlagen.');
+    return;
+  }
+  if (!bericht.ok) {
+    ausgabe.textContent = bericht.reason || t('Die Diagnose ist fehlgeschlagen.');
+    return;
+  }
+
+  const zeilen = [...(bericht.zeilen || [])];
+
+  if ((bericht.auftragsSchluessel || []).length > 0) {
+    zeilen.push('', `Felder eines Render-Auftrags: ${bericht.auftragsSchluessel.join(', ')}`);
+  }
+
+  for (const versuch of bericht.versuche || []) {
+    zeilen.push(
+      '',
+      `Versuch „${versuch.art}": gesetzt ${versuch.gesetzt}`,
+      `  SetRenderSettings: ${versuch.settingsOk ? 'ja' : 'nein'}`,
+      `  Auftrag meldet: ${versuch.gemeldet ?? '(nichts)'}`,
+      `  SelectAllFrames im Auftrag: ${versuch.alleFrames ?? '(nicht gelesen)'}`,
+    );
+    if (versuch.fehler) zeilen.push(`  Fehler: ${versuch.fehler}`);
+  }
+
+  // Eine Deutung dazu, damit der Bericht nicht nur Zahlen ist. Der
+  // wahrscheinlichste Fall steht zuerst: Trägt schon die Nullmessung die
+  // ganze Timeline, hat das Preset „Entire Timeline" gespeichert.
+  const nullmessung = (bericht.versuche || []).find((v) => v.art === 'nur Preset');
+  const echte = (bericht.versuche || []).filter((v) => v.art !== 'nur Preset');
+  if (nullmessung || echte.length > 0) {
+    zeilen.push('', '--- Deutung ---');
+    if (nullmessung?.gemeldet) {
+      zeilen.push(`Preset allein meldet: ${nullmessung.gemeldet}`);
+    }
+    const uebernommen = echte.filter((v) => v.gesetzt === v.gemeldet);
+    if (uebernommen.length > 0) {
+      zeilen.push(`Übernommen wurde: ${uebernommen.map((v) => v.art).join(', ')}`);
+    } else {
+      zeilen.push(
+        'Keiner der Versuche kam im Auftrag an. Dann hilft der Umweg über Resolve:',
+        'Im Deliver-Reiter den Bereich auf „In/Out Range" stellen, das Preset neu',
+        'speichern und hier wieder auswählen – dann braucht das Plugin den',
+        'Bereich gar nicht zu setzen.',
+      );
+    }
+  }
+
+  ausgabe.textContent = zeilen.join('\n');
+  el('diagnose-kopieren').classList.remove('versteckt');
+  status(t('Diagnose fertig.'), 'gut');
+}
+
 /* --------------------------------------------------------------- Aktionen */
+
+/**
+ * Aktualisieren heißt: **das Fenster neu laden**, wie Cmd+R.
+ *
+ * Vorher wurde nur der Zustand neu abgefragt, und das reichte nicht: Die
+ * Oberfläche merkt sich einiges, was dabei stehen blieb – die Projektliste
+ * (`projekteGeladen`), die geladenen Fassungen, die Kommentarliste, der Stand
+ * der Ziel-Auswahl. Cmd+R wirft all das weg und liest HTML und Skript wieder
+ * von der Platte; deshalb hat es getan, was der Knopf tun sollte.
+ *
+ * Was dabei **nicht** verloren geht: Einstellungen und Zugang liegen auf der
+ * Platte, und ein laufender Upload läuft im Hauptprozess. Nur sein
+ * Fortschritt hätte nach dem Neuladen niemanden mehr, der ihn anzeigt –
+ * deshalb die Rückfrage.
+ */
+async function aktualisiere() {
+  if (zustand.laueftUpload || zustand.laueftStapel) {
+    status(
+      t('Während eines Uploads wird nicht neu geladen – nur der Zustand wurde neu abgefragt.'),
+      'fehler',
+    );
+    await ladeZustand();
+    return;
+  }
+  window.location.reload();
+}
 
 async function ladeZustand() {
   const daten = await aufruf(window.klappe.state());
@@ -656,6 +1051,7 @@ function wechsleAnsicht(name) {
     }
     void ladeHochladen();
   }
+  if (name === 'stapel') void ladeStapel();
   if (name === 'einstellungen') {
     void ladePresetAuswahl();
     void ladeRenderReste();
@@ -967,6 +1363,10 @@ async function ermittleZiel() {
 
 async function starteUpload() {
   if (zustand.laueftUpload) return;
+  if (zustand.laueftStapel) {
+    status(t('Es läuft bereits ein Upload.'), 'fehler');
+    return;
+  }
   const ziel = await ermittleZiel();
   if (!ziel) return;
   if (!ziel.preset) {
@@ -1616,7 +2016,34 @@ function verdrahte() {
     knopf.addEventListener('click', () => wechsleAnsicht(knopf.dataset.ansicht));
   }
 
-  el('kontext-neu').addEventListener('click', ladeZustand);
+  el('kontext-neu').addEventListener('click', aktualisiere);
+  el('stapel-laden').addEventListener('click', ladeStapelTimelines);
+  el('stapel-alle').addEventListener('click', () => alleStapel(true));
+  el('stapel-keine').addEventListener('click', () => alleStapel(false));
+  el('stapel-start').addEventListener('click', starteStapel);
+  el('stapel-abbruch').addEventListener('click', () => window.klappe.uploadAbort());
+  el('stapel-ziel-projekt').addEventListener('change', zeichneStapelListe);
+  el('stapel-ablage-an').addEventListener('change', () => {
+    zeigeStapelAblage();
+    el('stapel-ablage').dataset.beruehrt = 'ja';
+  });
+  el('stapel-ablage').addEventListener('input', (ereignis) => {
+    ereignis.target.dataset.beruehrt = 'ja';
+  });
+  el('stapel-ablage-waehlen').addEventListener('click', async (ereignis) => {
+    ereignis.preventDefault();
+    const pfad = await aufruf(window.klappe.pickFolder(t('Ordner für die Zweitablage')));
+    if (!pfad) return;
+    el('stapel-ablage').value = pfad;
+    el('stapel-ablage').dataset.beruehrt = 'ja';
+    el('stapel-ablage-an').checked = true;
+    zeigeStapelAblage();
+  });
+  el('diagnose-bereich').addEventListener('click', diagnoseBereich);
+  el('diagnose-kopieren').addEventListener('click', async () => {
+    const geklappt = await aufruf(window.klappe.copyText(el('diagnose-ausgabe').textContent));
+    if (geklappt) status(t('Bericht kopiert.'), 'gut');
+  });
   el('kommentare-neu').addEventListener('click', ladeKommentare);
   el('marker-setzen').addEventListener('click', setzeMarker);
   el('overlays-setzen').addEventListener('click', setzeOverlays);
@@ -1791,6 +2218,20 @@ function verdrahte() {
       } else {
         el('balken-fuellung').style.width = `${ereignis.percent || 0}%`;
         el('fortschritt-text').textContent = ereignis.text || '';
+      }
+
+      // Im Stapel läuft dasselbe Ereignis durch, nur steht `stapel` dabei:
+      // welche Timeline von wie vielen. Das gehört in den Stapel-Reiter, der
+      // seinen eigenen Balken hat – der des Upload-Reiters ist dort nicht zu
+      // sehen.
+      if (ereignis.stapel) {
+        el('stapel-balken').style.width = `${ereignis.percent || 0}%`;
+        el('stapel-wo').textContent = t('Timeline {nummer} von {anzahl}: {name}', {
+          nummer: ereignis.stapel.nummer,
+          anzahl: ereignis.stapel.anzahl,
+          name: ereignis.stapel.timeline,
+        });
+        el('stapel-text').textContent = ereignis.text || '';
       }
     }
     if (ereignis.type === 'pair:tick') {

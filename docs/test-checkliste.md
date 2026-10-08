@@ -82,6 +82,45 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       der Fehler: eine Stunde Versatz, den Resolve stillschweigend verwarf)
 - [ ] Lässt sich der Bereich gar nicht setzen, bricht der Lauf **vor** dem
       Rendern ab – statt heimlich die ganze Timeline hochzuladen
+- [ ] *Einstellungen → Diagnose → In/Out-Bereich prüfen* liefert einen Bericht:
+      `GetMarkInOut()` wörtlich, die Felder eines Render-Auftrags, je Versuch
+      „gesetzt" gegen „Auftrag meldet", dazu eine Deutung
+- [ ] Die **Nullmessung** („nur Preset") zeigt, was das Preset allein tut –
+      meldet sie die ganze Timeline, trägt das Preset „Entire Timeline"
+- [ ] Nach dem Umstellen des Presets auf „In/Out Range" (im Deliver-Reiter,
+      Preset neu speichern) greift der Bereich
+- [ ] **Bericht kopieren** legt den Text in die Zwischenablage
+- [ ] Die Diagnose hinterlässt **keinen** Auftrag in der Render-Warteschlange
+
+## Aktualisieren
+
+- [ ] **Aktualisieren** lädt das Panel neu (wie Cmd+R): Projekt, Timeline,
+      Projektliste, Fassungen und Kommentare stehen frisch da
+- [ ] Während eines Uploads wird **nicht** neu geladen – stattdessen die
+      Meldung und ein einfaches Neu-Abfragen
+
+## Stapel
+
+- [ ] Der Reiter **Stapel** listet alle Timelines des Resolve-Projekts; die
+      aktive ist vorangehakt
+- [ ] Je Zeile steht der Bereich, der ausgespielt würde (In/Out oder ganze
+      Timeline mit Frame-Anzahl)
+- [ ] **Alle** / **Keine** wirken
+- [ ] Eine schon zugeordnete Timeline zeigt von selbst auf ihr Video
+- [ ] „neues Video" legt es an und benennt es nach der Timeline
+- [ ] Ein Wechsel des Klappe-Projekts baut die Videoauswahl aller Zeilen neu
+- [ ] Ohne Auswahl, ohne Preset oder ohne Projekt gibt es eine Meldung statt
+      eines Starts
+- [ ] Beide Haken (Upload und Ablage) aus → Meldung statt Start
+- [ ] Der Fortschritt nennt „Timeline 3 von 7" samt Namen
+- [ ] **Eine scheiternde Timeline hält den Stapel nicht auf** – am Ende steht
+      je Zeile ✓ oder ✗ mit Grund
+- [ ] Die Fassungsnummern stimmen, auch wenn der Stapel Stunden läuft
+- [ ] **Abbrechen** hält nach der laufenden Timeline an
+- [ ] Nach dem Stapel ist wieder die Timeline aktiv, die es vorher war
+- [ ] Während eines Stapels lässt sich kein Einzel-Upload starten
+- [ ] Ein Stapel mit zehn Timelines läuft durch, ohne dass der Zwischenordner
+      volläuft (jede Datei verschwindet nach ihrem Upload)
 - [ ] „Immer die ganze Timeline" ignoriert ein gesetztes In/Out
 - [ ] **Neues Video anlegen** funktioniert und wird gleich zum Ziel
 - [ ] Die Projekte stehen als `2601_Kunde_Kampagne` in der Liste – im

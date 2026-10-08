@@ -28,6 +28,8 @@ const tus = require('./tus.js');
 let running = null;
 /** Wird aufgelöst, sobald der laufende Vorgang aufgeräumt hat. */
 let fertigGemeldet = null;
+/** Läuft ein Stapel? Dann steht hier sein Abbruch-Schalter. */
+let stapel = null;
 
 /* ------------------------------------------------------------- Zielauswahl */
 
@@ -691,8 +693,150 @@ function laeuft() {
 
 /** Bricht den laufenden Upload ab. */
 function abort() {
+  // Der Stapel zuerst: Sonst bricht nur der laufende Export ab und der
+  // nächste fängt gleich wieder an – „Abbrechen" hieße dann „überspringen".
+  if (stapel) stapel.abbruch = true;
   if (running) running.aborted = true;
-  return Boolean(running);
+  return Boolean(running || stapel);
+}
+
+/**
+ * Die Timelines des Resolve-Projekts, angereichert um ihre Zuordnung.
+ *
+ * Eine Timeline, die schon zu einem Video gehört, soll im Stapel von selbst
+ * auf dieses Video zeigen – alles andere wäre doppelte Arbeit, und das ist
+ * genau die Arbeit, die ein Stapel abnehmen soll.
+ */
+async function stapelTimelines() {
+  const aus = await resolve.timelines();
+  if (!aus.ok) return aus;
+
+  return {
+    ...aus,
+    timelines: aus.timelines.map((timeline) => {
+      const zuordnung = mapping.get(timeline.id);
+      return {
+        ...timeline,
+        videoId: zuordnung?.videoId || '',
+        videoName: zuordnung?.videoName || '',
+        projectId: zuordnung?.projectId || '',
+      };
+    }),
+  };
+}
+
+/**
+ * Mehrere Timelines hintereinander ausspielen und hochladen.
+ *
+ * Jeder Eintrag ist `{ timelineId, timelineName, ziel }` – `ziel` ist genau
+ * das, was `run()` sonst aus dem Dialog bekommt. Dadurch gilt im Stapel alles,
+ * was einzeln auch gilt: Overlay-Spur ausblenden, Dateiname nach Hausschema,
+ * Zweitablage, Zuordnung, Nachträge.
+ *
+ * **Ein gescheiterter Export hält die anderen nicht auf.** Ein Stapel läuft
+ * über die Mittagspause oder über Nacht; am Ende will man die neun fertigen
+ * sehen und nicht neun ungetane, weil die erste Timeline einen Fehler hatte.
+ * Was schiefging, steht hinterher je Zeile da.
+ */
+async function runBatch(auftraege, onProgress = () => {}) {
+  if (running || stapel) throw new api.KlappeError(t('Es läuft bereits ein Upload.'));
+  if (!Array.isArray(auftraege) || auftraege.length === 0) {
+    throw new api.KlappeError(t('Für den Stapel ist keine Timeline ausgewählt.'));
+  }
+
+  stapel = { abbruch: false };
+  const ergebnisse = [];
+  let abgebrochen = false;
+
+  // Am Ende wieder dorthin zurück, wo der Mensch war – ein Stapel soll die
+  // Timeline nicht heimlich umstellen.
+  const vorher = auftraege.length > 0 ? await resolve.timelines() : null;
+  const vorherId = vorher?.ok ? vorher.aktuellId : '';
+
+  try {
+    for (let i = 0; i < auftraege.length; i += 1) {
+      if (stapel.abbruch) break;
+
+      const auftrag = auftraege[i];
+      const melde = (fortschritt) =>
+        onProgress({
+          ...fortschritt,
+          stapel: { nummer: i + 1, anzahl: auftraege.length, timeline: auftrag.timelineName },
+        });
+
+      melde({
+        phase: 'stapel',
+        percent: 0,
+        text: t('Timeline {nummer} von {anzahl}: {name}', {
+          nummer: i + 1,
+          anzahl: auftraege.length,
+          name: auftrag.timelineName,
+        }),
+      });
+
+      try {
+        if (!(await resolve.aktiviereTimeline(auftrag.timelineId))) {
+          throw new api.KlappeError(
+            t('Die Timeline „{name}" ließ sich in Resolve nicht aktivieren.', {
+              name: auftrag.timelineName,
+            }),
+          );
+        }
+
+        // Die Fassungsnummer **hier** holen, nicht im Dialog: Sie wandert in
+        // den Dateinamen, und zwischen „Stapel starten" und dieser Timeline
+        // können Stunden liegen. Für ein frisch angelegtes Video kommt eine
+        // leere Liste zurück – dann ist es die v1.
+        let nummer = auftrag.ziel.nextVersionNumber;
+        if (auftrag.ziel.upload !== false) {
+          try {
+            const vorhandene = await versions(auftrag.ziel.videoId);
+            nummer =
+              Math.floor(
+                Math.max(0, ...vorhandene.map((fassung) => Number(fassung.versionNumber) || 0)),
+              ) + 1;
+          } catch {
+            /* Dann bleibt es bei dem, was der Dialog mitgegeben hat. */
+          }
+        }
+
+        const ergebnis = await run({ ...auftrag.ziel, nextVersionNumber: nummer }, melde);
+        ergebnisse.push({
+          ok: true,
+          timelineId: auftrag.timelineId,
+          timelineName: auftrag.timelineName,
+          versionNumber: ergebnis.version?.versionNumber ?? null,
+          webUrl: ergebnis.webUrl || '',
+          ablage: ergebnis.ablage?.ok ? ergebnis.ablage.path : '',
+          nachtraege: ergebnis.nachtraege || [],
+        });
+      } catch (fehler) {
+        ergebnisse.push({
+          ok: false,
+          timelineId: auftrag.timelineId,
+          timelineName: auftrag.timelineName,
+          reason: fehler.message,
+        });
+      }
+    }
+  } finally {
+    abgebrochen = Boolean(stapel?.abbruch);
+    stapel = null;
+
+    if (vorherId) {
+      try {
+        await resolve.aktiviereTimeline(vorherId);
+      } catch {
+        /* Dann bleibt die letzte Timeline des Stapels aktiv – kein Beinbruch. */
+      }
+    }
+  }
+
+  return {
+    ergebnisse,
+    abgebrochen,
+    gelungen: ergebnisse.filter((eintrag) => eintrag.ok).length,
+  };
 }
 
 /**
@@ -754,6 +898,8 @@ function formatBytes(bytes) {
 }
 
 module.exports = {
+  stapelTimelines,
+  runBatch,
   renderDir,
   projects,
   videos,

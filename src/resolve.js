@@ -13,6 +13,7 @@
 
 const path = require('node:path');
 
+const frames = require('./frames.js');
 const { t } = require('./i18n.js');
 
 const PLUGIN_ID = 'de.klappe.davinci';
@@ -411,6 +412,217 @@ async function auftragMitBereich(project, basis, kandidat) {
 }
 
 /**
+ * Alle Timelines des offenen Projekts – für den Stapel-Export.
+ *
+ * `GetMarkInOut()` lässt sich an **jeder** Timeline fragen, nicht nur an der
+ * aktiven. Das ist der Grund, warum ein Stapel überhaupt sinnvoll ist: Jede
+ * Timeline bringt ihren eigenen Bereich mit, und man muss nicht zehnmal
+ * umschalten, um zu sehen, was ausgespielt würde.
+ */
+async function timelines() {
+  const project = await getProject();
+  if (!project) return { ok: false, reason: t('In Resolve ist kein Projekt geöffnet.') };
+
+  const anzahl = Number(await project.GetTimelineCount()) || 0;
+  const aktuell = await project.GetCurrentTimeline();
+  const aktuellId = aktuell ? await aktuell.GetUniqueId() : '';
+
+  const liste = [];
+  for (let index = 1; index <= anzahl; index += 1) {
+    const timeline = await project.GetTimelineByIndex(index);
+    if (!timeline) continue;
+
+    const startFrame = Number(await timeline.GetStartFrame()) || 0;
+    const endFrame = Number(await timeline.GetEndFrame()) || 0;
+
+    let markIn = null;
+    let markOut = null;
+    try {
+      const marks = await timeline.GetMarkInOut();
+      if (marks && marks.video && Number.isFinite(Number(marks.video.in))) {
+        markIn = toRelativeFrame(Number(marks.video.in), startFrame);
+        markOut = toRelativeFrame(Number(marks.video.out), startFrame);
+      }
+    } catch {
+      /* Kennt diese Fassung die Methode nicht, gilt die ganze Timeline. */
+    }
+
+    liste.push({
+      index,
+      name: await timeline.GetName(),
+      id: await timeline.GetUniqueId(),
+      startFrame,
+      endFrame,
+      frameCount: Math.max(0, endFrame - startFrame),
+      markIn,
+      markOut,
+    });
+  }
+
+  return { ok: true, projectName: await project.GetName(), aktuellId, timelines: liste };
+}
+
+/**
+ * Eine Timeline zur aktiven machen – der Schritt, auf dem der Stapel beruht.
+ *
+ * Gesucht wird über die eindeutige ID und nicht über den Namen: In einem
+ * Projekt dürfen zwei Timelines gleich heißen, und dann wäre der Stapel ein
+ * Glücksspiel.
+ */
+async function aktiviereTimeline(id) {
+  const project = await getProject();
+  if (!project) throw new Error(t('In Resolve ist kein Projekt geöffnet.'));
+
+  const anzahl = Number(await project.GetTimelineCount()) || 0;
+  for (let index = 1; index <= anzahl; index += 1) {
+    const timeline = await project.GetTimelineByIndex(index);
+    if (!timeline) continue;
+    if (String(await timeline.GetUniqueId()) !== String(id)) continue;
+    return Boolean(await project.SetCurrentTimeline(timeline));
+  }
+  return false;
+}
+
+/**
+ * Was sagt Resolve wirklich über den Bereich?
+ *
+ * Zwei Anläufe haben den In/Out-Export nicht zum Laufen gebracht, und ohne
+ * Resolve kann ich nur Vermutungen anstellen. Also sammelt das Panel die
+ * Fakten selbst ein – ohne zu rendern:
+ *
+ * 1. Was `GetMarkInOut()` **wörtlich** zurückgibt, samt Typ. Daran hängt
+ *    alles: Kommt hier nichts an, ist jede weitere Umrechnung sinnlos.
+ * 2. Die Grenzen der Timeline, damit die Zahlen einzuordnen sind.
+ * 3. Für jeden Kandidaten: einen Render-Auftrag anlegen, ihn **vollständig**
+ *    zurücklesen und wieder löschen. Der Auftrag ist die einzige Stelle, an
+ *    der Resolve verrät, was es von den Einstellungen übernommen hat.
+ *
+ * Angelegt und gleich wieder gelöscht wird nur in der Warteschlange –
+ * gerendert wird nichts.
+ *
+ * Der Bericht bleibt **deutsch und unübersetzt**: Er ist zum Kopieren und
+ * Weitergeben gedacht, nicht zum Lesen im Alltag – wie die Installer, die auch
+ * deutsch bleiben. Die handlungsfähige Zusammenfassung daraus steht im Panel.
+ */
+async function bereichsDiagnose({ preset } = {}) {
+  const bericht = { zeilen: [], auftragsSchluessel: [], versuche: [] };
+  const sag = (text) => bericht.zeilen.push(text);
+
+  const project = await getProject();
+  if (!project) return { ok: false, reason: t('In Resolve ist kein Projekt geöffnet.') };
+  const timeline = await project.GetCurrentTimeline();
+  if (!timeline) return { ok: false, reason: t('In Resolve ist keine Timeline aktiv.') };
+
+  sag(`Projekt: ${await project.GetName()}`);
+  sag(`Timeline: ${await timeline.GetName()}`);
+
+  const startFrame = Number(await timeline.GetStartFrame()) || 0;
+  const endFrame = Number(await timeline.GetEndFrame()) || 0;
+  sag(`GetStartFrame(): ${startFrame}`);
+  sag(`GetEndFrame(): ${endFrame}`);
+  sag(`Länge: ${Math.max(0, endFrame - startFrame)} Frames`);
+
+  // Wörtlich, nicht gedeutet: Der Typ gehört dazu, weil die Brücke zu Resolve
+  // ein Wörterbuch auch als etwas anderes als ein einfaches Objekt liefern
+  // könnte – und dann greift `marks.video` ins Leere.
+  let marks = null;
+  try {
+    marks = await timeline.GetMarkInOut();
+    sag(`GetMarkInOut() Typ: ${Object.prototype.toString.call(marks)}`);
+    sag(`GetMarkInOut() wörtlich: ${JSON.stringify(marks)}`);
+    sag(`GetMarkInOut() Schlüssel: ${marks && typeof marks === 'object' ? Object.keys(marks).join(', ') || '(keine)' : '(kein Objekt)'}`);
+  } catch (fehler) {
+    sag(`GetMarkInOut() wirft: ${fehler.message}`);
+  }
+
+  const rohVon = Number(marks?.video?.in);
+  const rohBis = Number(marks?.video?.out);
+  if (!Number.isFinite(rohVon) || !Number.isFinite(rohBis)) {
+    sag('→ Kein brauchbares In/Out. Damit kann das Plugin keinen Bereich setzen.');
+    return { ok: true, ...bericht };
+  }
+
+  const relativVon = toRelativeFrame(rohVon, startFrame);
+  const relativBis = toRelativeFrame(rohBis, startFrame);
+  sag(`Gelesen: roh ${rohVon}–${rohBis}, relativ ${relativVon}–${relativBis}`);
+
+  if (!preset) {
+    sag('→ Ohne Render-Preset lässt sich der Rest nicht prüfen.');
+    return { ok: true, ...bericht };
+  }
+  if (!(await project.LoadRenderPreset(preset))) {
+    sag(`→ Preset „${preset}" ließ sich nicht laden.`);
+    return { ok: true, ...bericht };
+  }
+  sag(`Preset geladen: ${preset}`);
+
+  const kandidaten = frames.renderBereichKandidaten({
+    rohVon,
+    rohBis,
+    relativVon,
+    relativBis,
+    startFrame,
+  });
+
+  // Erst die Nullmessung: ein Auftrag **nur** aus dem Preset, ohne dass wir
+  // etwas setzen. Meldet der schon die ganze Timeline, trägt das Preset selbst
+  // „Entire Timeline" – dann kämpft unser `SelectAllFrames: false` gegen die
+  // gespeicherte Einstellung, und das wäre die Erklärung für alles.
+  kandidaten.unshift({ art: 'nur Preset', von: null, bis: null });
+
+  for (const kandidat of kandidaten) {
+    const nullmessung = kandidat.von === null;
+    const versuch = {
+      art: kandidat.art,
+      gesetzt: nullmessung ? '(nichts)' : `${kandidat.von}–${kandidat.bis}`,
+    };
+    let jobId = null;
+    try {
+      versuch.settingsOk = nullmessung
+        ? true
+        : Boolean(
+            await project.SetRenderSettings({
+              SelectAllFrames: false,
+              MarkIn: kandidat.von,
+              MarkOut: kandidat.bis,
+            }),
+          );
+      jobId = await project.AddRenderJob();
+      versuch.jobId = jobId || '(keiner)';
+
+      const auftraege = await project.GetRenderJobList();
+      const auftrag = Array.isArray(auftraege) ? auftraege[auftraege.length - 1] : null;
+      if (auftrag && typeof auftrag === 'object') {
+        if (bericht.auftragsSchluessel.length === 0) {
+          bericht.auftragsSchluessel = Object.keys(auftrag);
+        }
+        versuch.gemeldet = `${auftrag.MarkIn ?? '(fehlt)'}–${auftrag.MarkOut ?? '(fehlt)'}`;
+        // Wie der Auftrag selbst über den Bereich denkt – der Schlüsselname ist
+        // nicht dokumentiert, deshalb werden mehrere Schreibweisen abgefragt.
+        versuch.alleFrames = String(
+          auftrag.SelectAllFrames ?? auftrag.IsSelectAllFrames ?? '(fehlt)',
+        );
+      } else {
+        versuch.gemeldet = '(kein Auftrag zurückgelesen)';
+      }
+    } catch (fehler) {
+      versuch.fehler = fehler.message;
+    } finally {
+      if (jobId) {
+        try {
+          await project.DeleteRenderJob(jobId);
+        } catch {
+          /* Dann bleibt der Auftrag in der Warteschlange stehen – harmlos. */
+        }
+      }
+    }
+    bericht.versuche.push(versuch);
+  }
+
+  return { ok: true, ...bericht };
+}
+
+/**
  * Timeline ausspielen.
  *
  * `bereich` ist `{ kandidaten: [{ art, von, bis }] }` – die möglichen
@@ -621,6 +833,9 @@ module.exports = {
   deleteMarkerAtFrame,
   renderPresets,
   renderTimeline,
+  bereichsDiagnose,
+  timelines,
+  aktiviereTimeline,
   trackNames,
   findTrack,
   ensureTopTrack,

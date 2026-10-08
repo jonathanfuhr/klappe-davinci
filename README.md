@@ -208,6 +208,15 @@ bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
   > Bestätigt Resolve keine der Varianten, bricht der Lauf **vor** dem Rendern
   > ab. Ein Master, der die ganze Timeline enthält statt der dreißig Sekunden,
   > fällt sonst erst auf, wenn er als Fassung beim Kunden steht.
+  >
+  > **Spielt es trotzdem alles aus**, hilft *Einstellungen → Diagnose → In/Out-Bereich
+  > prüfen*: Der Bericht sagt, was Resolve von den Einstellungen übernommen hat.
+  > Der häufigste Grund steht dort als erstes – ein Render-Preset speichert den
+  > Bereich **mit**. Trägt das Preset „Entire Timeline", kämpft die Einstellung
+  > des Plugins gegen die gespeicherte. Der verlässliche Weg ist dann, im
+  > Deliver-Reiter den Bereich auf „In/Out Range" zu stellen, das Preset neu zu
+  > speichern und es hier zu wählen – dann braucht das Plugin den Bereich gar
+  > nicht zu setzen.
 - **Fassung ersetzen:** ein Schritt. Die alte Fassung derselben Nummer weicht
   beim Abschluss in einer Transaktion. **Achtung:** Ihre Kommentare
   verschwinden mit ihr – sie hängen an Frames eines Ausspielens, das es dann
@@ -277,6 +286,46 @@ Warnung im Erfolgsdialog.
 Der Pfad in den Einstellungen (und im Installer) ist die **Vorgabe**: Steht
 dort einer, ist der Haken im Dialog vorbelegt. Was im Dialog geändert wird,
 gilt für diesen einen Lauf und wandert nicht zurück in die Einstellungen.
+
+### Stapel – mehrere Timelines auf einmal
+
+Der Reiter **Stapel** listet alle Timelines des offenen Resolve-Projekts, je
+Zeile mit dem Bereich, der ausgespielt würde (`GetMarkInOut()` lässt sich an
+jeder Timeline fragen, nicht nur an der aktiven – deshalb muss man nicht
+zehnmal umschalten, um zu sehen, was passieren wird).
+
+Angehakt wird, was mitsoll; je Zeile steht daneben das **Video in Klappe** oder
+„neues Video" – dann heißt es wie die Timeline. Ist eine Timeline schon
+zugeordnet, zeigt sie von selbst auf ihr Video.
+
+**Ein Projekt für den ganzen Stapel.** Das ist eine bewusste Vereinfachung: Eine
+Projektauswahl in jeder Zeile wäre nicht nur unübersichtlich, sie wäre auch eine
+Anfrage je Zeile, nur um die Videoliste zu füllen. Wer in zwei Projekte
+ausspielen will, macht zwei Stapel.
+
+Gerendert wird **eine nach der anderen** – Resolve rechnet nicht zweimal
+gleichzeitig, parallel wäre langsamer. Der Upload einer Timeline läuft
+allerdings schon, während die nächste rendert, denn jeder Durchgang ist der
+normale Einzelablauf: Overlay-Spur ausblenden, rendern, hochladen, Zweitablage,
+Zuordnung, Nachträge.
+
+Zwei Dinge, die den Alltag retten:
+
+- **Ein gescheiterter Export hält die anderen nicht auf.** Ein Stapel läuft über
+  die Mittagspause; am Ende will man die neun fertigen sehen und nicht neun
+  ungetane, weil die erste Timeline einen Fehler hatte. Was schiefging, steht
+  hinterher je Zeile da.
+- **Die Fassungsnummer wird je Timeline frisch geholt**, direkt vor dem Rendern.
+  Sie wandert in den Dateinamen, und zwischen „Stapel starten" und der achten
+  Timeline können Stunden liegen.
+
+Am Ende steht die Timeline wieder auf der, die vorher aktiv war – ein Stapel
+soll Resolve nicht heimlich umstellen. **Abbrechen** hält nach der laufenden
+Timeline an, nicht mitten im Rendern.
+
+Die KI-Kennzeichnung bleibt im Stapel unangetastet: Sie hängt am Video und gilt
+für alle Fassungen – das gehört in den Einzeldialog, wo man den Stand des Videos
+vor sich hat.
 
 ### Der Zwischenordner
 

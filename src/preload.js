@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('klappe', {
 
   // Ziel & Upload
   projects: (optionen) => call('klappe:targets:projects', optionen),
+  diagnoseBereich: (optionen) => call('klappe:diagnose:bereich', optionen),
+  stapelTimelines: () => call('klappe:stapel:timelines'),
+  stapelRun: (auftraege) => call('klappe:stapel:run', auftraege),
   videos: (projectId) => call('klappe:targets:videos', projectId),
   versions: (videoId) => call('klappe:targets:versions', videoId),
   createProject: (name, customer) => call('klappe:targets:createProject', name, customer),

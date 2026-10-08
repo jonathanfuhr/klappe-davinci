@@ -20,7 +20,7 @@
 
     <section id="kontext" class="kontext">
       <div id="kontext-text">Resolve wird abgefragt …</div>
-      <button id="kontext-neu" class="leise" title="Projekt und Timeline neu einlesen">
+      <button id="kontext-neu" class="leise" title="Panel neu laden (wie Cmd+R) – liest Projekt, Timeline und alle Listen frisch ein">
         Aktualisieren
       </button>
     </section>
@@ -28,6 +28,7 @@
     <nav class="reiter">
       <button data-ansicht="kommentare" class="aktiv">Kommentare</button>
       <button data-ansicht="hochladen">Hochladen</button>
+      <button data-ansicht="stapel">Stapel</button>
       <button data-ansicht="einstellungen">Einstellungen</button>
     </nav>
 
@@ -233,6 +234,82 @@
         </div>
       </section>
 
+      <!-- ---------------------------------------------------------- Stapel -->
+      <section id="ansicht-stapel" class="ansicht versteckt">
+        <div id="stapel-formular">
+          <div class="karte">
+            <p class="klein">
+              Mehrere Timelines hintereinander ausspielen und hochladen. Jede bringt ihr eigenes
+              In/Out mit. Gerendert wird eine nach der anderen – Resolve rechnet nicht zweimal
+              gleichzeitig, das wäre langsamer, nicht schneller.
+            </p>
+            <div class="werkzeuge">
+              <button id="stapel-laden" class="leise">Timelines einlesen</button>
+              <button id="stapel-alle" class="leise">Alle</button>
+              <button id="stapel-keine" class="leise">Keine</button>
+            </div>
+            <p id="stapel-projekt" class="klein"></p>
+          </div>
+
+          <div class="karte">
+            <label class="feld">
+              <span>Render-Preset</span>
+              <select id="stapel-preset"></select>
+            </label>
+            <label class="feld">
+              <span>Bereich</span>
+              <select id="stapel-bereich">
+                <option value="auto">Wie in Resolve (In/Out, sonst ganze Timeline)</option>
+                <option value="ganz">Immer die ganze Timeline</option>
+              </select>
+            </label>
+            <label class="feld">
+              <span>Projekt in Klappe</span>
+              <select id="stapel-ziel-projekt"></select>
+            </label>
+            <p class="klein">
+              Ein Stapel gehört in ein Projekt. Je Timeline wird darunter das Video gewählt – oder
+              eins neu angelegt, dann heißt es wie die Timeline.
+            </p>
+            <label class="haken">
+              <input id="stapel-upload-an" type="checkbox" checked />
+              <span>Nach Klappe hochladen</span>
+            </label>
+            <label class="haken">
+              <input id="stapel-ablage-an" type="checkbox" />
+              <span>Master lokal ablegen</span>
+            </label>
+            <div id="stapel-ablage-zeile" class="feld versteckt">
+              <span class="pfadzeile">
+                <input id="stapel-ablage" type="text" placeholder="z. B. der Projektordner auf dem Server" />
+                <button id="stapel-ablage-waehlen" class="leise">Ordner wählen …</button>
+              </span>
+            </div>
+            <label class="haken">
+              <input id="stapel-final" type="checkbox" />
+              <span>Alle als Endfassung</span>
+            </label>
+          </div>
+
+          <ul id="stapel-liste" class="liste"></ul>
+
+          <div class="werkzeuge">
+            <button id="stapel-start" class="wichtig">Stapel starten</button>
+            <button id="stapel-abbruch" class="leise versteckt">Abbrechen</button>
+          </div>
+
+          <!-- Eigener Fortschritt: Der des Upload-Reiters liegt in einer
+               anderen Sektion und wäre hier nicht zu sehen. -->
+          <div id="stapel-fortschritt" class="fortschritt versteckt">
+            <div class="balken"><div id="stapel-balken"></div></div>
+            <div id="stapel-wo" class="klein"></div>
+            <div id="stapel-text" class="klein"></div>
+          </div>
+        </div>
+
+        <div id="stapel-ergebnis" class="karte versteckt"></div>
+      </section>
+
       <!-- --------------------------------------------------- Einstellungen -->
       <section id="ansicht-einstellungen" class="ansicht versteckt">
         <div class="karte">
@@ -396,6 +473,20 @@
             <button id="renders-pruefen" class="leise">Nachsehen</button>
             <button id="renders-aufraeumen">Reste löschen</button>
           </div>
+        </div>
+
+        <div class="karte">
+          <strong>Diagnose</strong>
+          <p class="klein">
+            Spielt das Panel trotz gesetztem In/Out die ganze Timeline aus, sammelt dieser Knopf
+            ein, was Resolve dazu sagt. Es wird nichts gerendert – nur ein Auftrag angelegt und
+            gleich wieder gelöscht.
+          </p>
+          <div class="werkzeuge">
+            <button id="diagnose-bereich" class="leise">In/Out-Bereich prüfen</button>
+            <button id="diagnose-kopieren" class="leise versteckt">Bericht kopieren</button>
+          </div>
+          <pre id="diagnose-ausgabe" class="bericht versteckt"></pre>
         </div>
 
         <p id="bau-stand" class="klein"></p>

@@ -336,6 +336,17 @@ function registerHandlers() {
   );
   handle('klappe:upload:abort', async () => upload.abort());
 
+  handle('klappe:stapel:timelines', async () => upload.stapelTimelines());
+  handle('klappe:stapel:run', async (auftraege) =>
+    upload.runBatch(auftraege, (progress) => emit('upload:progress', progress)),
+  );
+
+  // Diagnose: Was sagt Resolve über das In/Out? Legt einen Render-Auftrag an
+  // und löscht ihn gleich wieder – gerendert wird nichts.
+  handle('klappe:diagnose:bereich', async (optionen) =>
+    resolveBridge.bereichsDiagnose(optionen || {}),
+  );
+
   handle('klappe:renders:status', async () => ({
     ...renders.status(),
     ordner: upload.renderDir(),

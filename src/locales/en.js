@@ -45,7 +45,6 @@ module.exports = {
 
   '{rate} fps': '{rate} fps',
   Aktualisieren: 'Refresh',
-  'Projekt und Timeline neu einlesen': 'Read project and timeline again',
 
   /* ---------------------------------------------------------------- Reiter */
   Kommentare: 'Comments',
@@ -319,6 +318,51 @@ module.exports = {
   'Zuordnung: {zuordnung} · Zeichnungen: {zeichnungen}':
     'Link: {zuordnung} · drawings: {zeichnungen}',
   'Zwischenordner fürs Rendern': 'Scratch folder for rendering',
+  /* ------------------------------------------------------------- Stapel */
+  Stapel: 'Batch',
+  'Mehrere Timelines hintereinander ausspielen und hochladen. Jede bringt ihr eigenes In/Out mit. Gerendert wird eine nach der anderen – Resolve rechnet nicht zweimal gleichzeitig, das wäre langsamer, nicht schneller.':
+    'Render and upload several timelines one after another. Each brings its own in/out. They are rendered one at a time – Resolve does not compute two at once, which would be slower, not faster.',
+  'Timelines einlesen': 'Read timelines',
+  'Projekt in Klappe': 'Project in Klappe',
+  'Ein Stapel gehört in ein Projekt. Je Timeline wird darunter das Video gewählt – oder eins neu angelegt, dann heißt es wie die Timeline.':
+    'A batch belongs to one project. The video is chosen per timeline below – or created anew, in which case it is named after the timeline.',
+  'Alle als Endfassung': 'All as final versions',
+  'Stapel starten': 'Start batch',
+  'Für den Stapel ist keine Timeline ausgewählt.': 'No timeline is selected for the batch.',
+  'Für den Stapel fehlt das Projekt in Klappe.': 'The batch is missing its project in Klappe.',
+  'Timeline {nummer} von {anzahl}: {name}': 'Timeline {nummer} of {anzahl}: {name}',
+  'Die Timeline „{name}" ließ sich in Resolve nicht aktivieren.':
+    'The timeline “{name}” could not be made current in Resolve.',
+  '{anzahl} Timelines im Resolve-Projekt „{projekt}".':
+    '{anzahl} timelines in the Resolve project “{projekt}”.',
+  'In/Out {von}–{bis} ({anzahl} Frames)': 'In/out {von}–{bis} ({anzahl} frames)',
+  'ganze Timeline ({anzahl} Frames)': 'whole timeline ({anzahl} frames)',
+  'neues Video „{name}"': 'new video “{name}”',
+  '{anzahl} Timelines ausspielen?': 'Render {anzahl} timelines?',
+  'Das läuft eine nach der anderen und kann lange dauern. Abbrechen hält nach der laufenden Timeline an.':
+    'They run one after another and this can take a while. Cancelling stops after the current timeline.',
+  '{gelungen} von {anzahl} Timelines fertig{abbruch}.':
+    '{gelungen} of {anzahl} timelines finished{abbruch}.',
+  ' (abgebrochen)': ' (cancelled)',
+  '✓ {name} → Fassung {nummer}': '✓ {name} → version {nummer}',
+  '✗ {name}: {grund}': '✗ {name}: {grund}',
+  'Stapel fertig.': 'Batch finished.',
+  'Stapel beendet – nicht alles ist durchgelaufen.':
+    'Batch ended – not everything went through.',
+
+  /* ----------------------------------------------------------- Diagnose */
+  Diagnose: 'Diagnostics',
+  'Spielt das Panel trotz gesetztem In/Out die ganze Timeline aus, sammelt dieser Knopf ein, was Resolve dazu sagt. Es wird nichts gerendert – nur ein Auftrag angelegt und gleich wieder gelöscht.':
+    'If the panel renders the whole timeline despite an in/out being set, this button collects what Resolve has to say about it. Nothing is rendered – a job is created and deleted again right away.',
+  'In/Out-Bereich prüfen': 'Check the in/out range',
+  'Bericht kopieren': 'Copy report',
+  'Bericht kopiert.': 'Report copied.',
+  'Die Diagnose ist fehlgeschlagen.': 'The diagnostics failed.',
+  'Diagnose fertig.': 'Diagnostics finished.',
+  'Panel neu laden (wie Cmd+R) – liest Projekt, Timeline und alle Listen frisch ein':
+    'Reload the panel (like Cmd+R) – reads project, timeline and every list afresh',
+  'Während eines Uploads wird nicht neu geladen – nur der Zustand wurde neu abgefragt.':
+    'No reload while an upload is running – only the state was read again.',
   'wird geprüft …': 'checking …',
   Nachsehen: 'Check',
   'Reste löschen': 'Delete leftovers',
