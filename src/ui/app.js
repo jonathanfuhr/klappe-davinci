@@ -940,13 +940,23 @@ async function diagnoseBereich() {
     }
     const uebernommen = echte.filter((v) => v.gesetzt === v.gemeldet);
     if (uebernommen.length > 0) {
-      zeilen.push(`Übernommen wurde: ${uebernommen.map((v) => v.art).join(', ')}`);
+      zeilen.push(
+        `Übernommen wurde: ${uebernommen.map((v) => v.art).join(', ')}`,
+        'Damit spielt das Plugin den Bereich aus – das Preset bleibt, wie es ist.',
+      );
+    } else if (echte.every((v) => v.gemeldet === '(fehlt)–(fehlt)')) {
+      zeilen.push(
+        'Die Render-Aufträge dieser Resolve-Fassung nennen MarkIn/MarkOut nicht.',
+        'Dann lässt sich hier nichts nachprüfen – das Plugin setzt den Bereich',
+        'trotzdem und meldet ihn im Ergebnis als „ungeprüft".',
+        'Die Felder, die ein Auftrag kennt, stehen oben – bitte mitschicken.',
+      );
     } else {
       zeilen.push(
-        'Keiner der Versuche kam im Auftrag an. Dann hilft der Umweg über Resolve:',
-        'Im Deliver-Reiter den Bereich auf „In/Out Range" stellen, das Preset neu',
-        'speichern und hier wieder auswählen – dann braucht das Plugin den',
-        'Bereich gar nicht zu setzen.',
+        'Keiner der Versuche kam im Auftrag an – weder eine andere Zählweise noch',
+        'eine andere Art, die Einstellung zu setzen. Bitte diesen Bericht',
+        'weitergeben: Die Zeilen „gesetzt" gegen „Auftrag meldet" sagen, was',
+        'Resolve stattdessen eingetragen hat.',
       );
     }
   }

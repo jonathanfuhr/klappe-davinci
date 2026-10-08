@@ -217,7 +217,37 @@ function renderBereichKandidaten({ rohVon, rohBis, relativVon, relativBis, start
   });
 }
 
+/**
+ * Das In/Out aus der Antwort von `GetMarkInOut()` herauslesen.
+ *
+ * Dokumentiert ist `{'video': {'in': 0, 'out': 134}, 'audio': {…}}`, und genau
+ * darauf hat sich der erste Anlauf verlassen: `marks.video.in`. Fehlt dieser
+ * eine Weg – weil die Brücke zu Resolve das Wörterbuch anders durchreicht oder
+ * weil das In/Out nur als „audio" oder flach dasteht –, galt die Timeline als
+ * ohne Bereich, und das sah im Panel genauso aus wie „Resolve ignoriert den
+ * Bereich". Deshalb werden jetzt alle plausiblen Formen abgeklopft.
+ *
+ * Rein rechnend und geprüft: Das ist die Stelle, an der ein stilles `null` den
+ * ganzen Bereichsexport ausschaltet.
+ */
+function leseMarkInOut(marks) {
+  if (!marks || typeof marks !== 'object') return null;
+
+  // Reihenfolge: Video zuerst (das ist der Bildbereich, um den es geht), dann
+  // Audio, dann die flache Form.
+  for (const teil of [marks.video, marks.audio, marks]) {
+    if (!teil || typeof teil !== 'object') continue;
+
+    const von = Number(teil.in ?? teil.markIn ?? teil.start ?? teil.In ?? teil.MarkIn);
+    const bis = Number(teil.out ?? teil.markOut ?? teil.end ?? teil.Out ?? teil.MarkOut);
+    if (Number.isFinite(von) && Number.isFinite(bis) && bis > von) return { von, bis };
+  }
+
+  return null;
+}
+
 module.exports = {
+  leseMarkInOut,
   renderBereichKandidaten,
   parseFrameRate,
   fpsToNumber,

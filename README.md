@@ -196,27 +196,39 @@ bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
   Timeline. Der verwendete Bereich wandert in die Zuordnung; er ist der
   Frame-Offset für Marker und Overlays.
 
-  > **Welche Zahlen Resolve für den Bereich will, sagt es selbst.** Die
-  > Scripting-Doku beschreibt `MarkIn`/`MarkOut` nur als „int" – ob ab
-  > Timeline-Anfang gezählt oder inklusive Start-Timecode, steht nirgends. Das
-  > Plugin schickt deshalb der Reihe nach die Zahlen, die `GetMarkInOut()`
-  > gemeldet hat, dann die relative und dann die absolute Lesart, legt jeweils
-  > einen Render-Auftrag an und **liest ihn zurück**: Nur wenn Resolve den
-  > Bereich bestätigt, wird gerendert. Was sich bewährt hat, gilt für den Rest
-  > der Sitzung.
+  > **Wie der Bereich gesetzt wird, sagt Resolve selbst.** Zwei Dinge sind
+  > nicht dokumentiert, und beide hat das Plugin anfangs geraten:
+  >
+  > 1. **Die Zählweise.** `MarkIn`/`MarkOut` sind nur als „int" beschrieben –
+  >    ob ab Timeline-Anfang gezählt oder inklusive Start-Timecode, steht
+  >    nirgends. Bei einer Timeline ab 01:00:00:00 liegt die falsche Lesart eine
+  >    Stunde hinter dem eigenen Ende, und Resolve verwirft sie stillschweigend.
+  > 2. **Die Art, es zu setzen.** `SelectAllFrames` schaltet den Bereich aus,
+  >    wenn es `True` ist – ob Resolve den Schalter und die Zahlen in *einem*
+  >    Aufruf zusammen annimmt, ob die Reihenfolge zählt oder ob der Schalter
+  >    überhaupt nötig ist, sagt die Doku nicht.
+  >
+  > Also probiert das Plugin beides durch: drei Zählweisen × vier Arten, jeweils
+  > einen Render-Auftrag anlegen und ihn **zurücklesen**. Nur wenn Resolve den
+  > Bereich bestätigt, wird gerendert; was sich bewährt hat, gilt für den Rest
+  > der Sitzung. Das kostet ein paar Aufrufe und keinen einzigen Frame –
+  > gerendert wird erst, wenn der Auftrag stimmt.
+  >
+  > **Das Render-Preset bleibt dabei unangetastet.** Es ist das Arbeitsmittel
+  > des Hauses; ein Plugin, das es umschreibt, damit sein Export klappt, hat die
+  > Rollen verwechselt.
   >
   > Bestätigt Resolve keine der Varianten, bricht der Lauf **vor** dem Rendern
   > ab. Ein Master, der die ganze Timeline enthält statt der dreißig Sekunden,
   > fällt sonst erst auf, wenn er als Fassung beim Kunden steht.
   >
-  > **Spielt es trotzdem alles aus**, hilft *Einstellungen → Diagnose → In/Out-Bereich
-  > prüfen*: Der Bericht sagt, was Resolve von den Einstellungen übernommen hat.
-  > Der häufigste Grund steht dort als erstes – ein Render-Preset speichert den
-  > Bereich **mit**. Trägt das Preset „Entire Timeline", kämpft die Einstellung
-  > des Plugins gegen die gespeicherte. Der verlässliche Weg ist dann, im
-  > Deliver-Reiter den Bereich auf „In/Out Range" zu stellen, das Preset neu zu
-  > speichern und es hier zu wählen – dann braucht das Plugin den Bereich gar
-  > nicht zu setzen.
+  > **Kommt trotzdem alles heraus**, sagt schon die Statuszeile vor dem Rendern,
+  > welcher der beiden Fälle es ist: „Kein In/Out in der Timeline gesetzt" heißt,
+  > dass das Plugin gar keinen Bereich gesehen hat – etwas anderes als ein
+  > Bereich, den Resolve ignoriert. Mehr steht in
+  > *Einstellungen → Diagnose → In/Out-Bereich prüfen*: Dort kommt
+  > `GetMarkInOut()` wörtlich zurück, dazu je Versuch „gesetzt" gegen „Auftrag
+  > meldet".
 - **Fassung ersetzen:** ein Schritt. Die alte Fassung derselben Nummer weicht
   beim Abschluss in einer Transaktion. **Achtung:** Ihre Kommentare
   verschwinden mit ihr – sie hängen an Frames eines Ausspielens, das es dann

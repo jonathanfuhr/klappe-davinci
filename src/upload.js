@@ -382,6 +382,19 @@ async function run(options, onProgress = () => {}) {
           anzahl: context.markOut - context.markIn,
         }),
       });
+    } else if (options.wholeTimeline !== true) {
+      // Der Mensch hat „wie in Resolve" gewählt, und wir haben kein In/Out
+      // gefunden. Das muss **vor** dem Rendern dastehen: Sonst ist ein
+      // nicht erkanntes In/Out von einem ignorierten nicht zu unterscheiden –
+      // beides sieht aus wie „die ganze Timeline kommt heraus".
+      onProgress({
+        phase: 'render',
+        percent: 0,
+        text:
+          context.markInOutQuelle === 'keine-methode'
+            ? t('Kein In/Out: Diese Resolve-Fassung nennt keins. Die ganze Timeline wird ausgespielt.')
+            : t('Kein In/Out in der Timeline gesetzt – die ganze Timeline wird ausgespielt.'),
+      });
     }
 
     let renderErgebnis = null;
@@ -622,7 +635,12 @@ async function run(options, onProgress = () => {}) {
       webUrl: version?.webUrl ? `${api.baseUrl()}${version.webUrl}` : '',
       file: { path: rendered.path, size: rendered.size },
       bereich: useRange
-        ? { von: context.markIn, bis: context.markOut, art: renderErgebnis?.bereich?.art || '' }
+        ? {
+            von: context.markIn,
+            bis: context.markOut,
+            art: renderErgebnis?.bereich?.art || '',
+            weg: renderErgebnis?.bereich?.weg || '',
+          }
         : null,
     };
   } catch (error) {

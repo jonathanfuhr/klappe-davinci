@@ -87,8 +87,12 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
       „gesetzt" gegen „Auftrag meldet", dazu eine Deutung
 - [ ] Die **Nullmessung** („nur Preset") zeigt, was das Preset allein tut –
       meldet sie die ganze Timeline, trägt das Preset „Entire Timeline"
-- [ ] Nach dem Umstellen des Presets auf „In/Out Range" (im Deliver-Reiter,
-      Preset neu speichern) greift der Bereich
+- [ ] Der Bericht nennt je Paar aus Zählweise und Art („gemeldet / zusammen",
+      „relativ / erst Schalter", …), was gesetzt und was gemeldet wurde
+- [ ] Das Render-Preset ist hinterher **unverändert** – weder die Diagnose noch
+      der Export schreiben hinein
+- [ ] Ohne gesetztes In/Out nennt die Statuszeile vor dem Rendern den Grund
+      („kein In/Out gesetzt" bzw. „diese Resolve-Fassung nennt keins")
 - [ ] **Bericht kopieren** legt den Text in die Zwischenablage
 - [ ] Die Diagnose hinterlässt **keinen** Auftrag in der Render-Warteschlange
 

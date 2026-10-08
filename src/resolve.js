@@ -187,9 +187,13 @@ async function context() {
   try {
     const marks = await timeline.GetMarkInOut();
     markInOutQuelle = 'nicht-gesetzt';
-    if (marks && marks.video && Number.isFinite(Number(marks.video.in))) {
-      markInRaw = Number(marks.video.in);
-      markOutRaw = Number(marks.video.out);
+    // Nicht nur `marks.video.in`: Fehlt dieser eine Weg, galt die Timeline
+    // vorher als ohne Bereich – und das sah genauso aus wie „Resolve ignoriert
+    // den Bereich". `leseMarkInOut` klopft alle plausiblen Formen ab.
+    const gelesen = frames.leseMarkInOut(marks);
+    if (gelesen) {
+      markInRaw = gelesen.von;
+      markOutRaw = gelesen.bis;
       markIn = toRelativeFrame(markInRaw, startFrame);
       markOut = toRelativeFrame(markOutRaw, startFrame);
       markInAbsolute = markIn + startFrame;
@@ -364,26 +368,64 @@ async function auftragsBereich(project, jobId) {
 }
 
 /**
- * Welche Zählweise `SetRenderSettings` für MarkIn/MarkOut erwartet, hat sich
- * einmal herausgestellt – dann gilt sie für diese Sitzung.
+ * Welche Zählweise **und** welcher Weg sich bewährt haben, gilt für den Rest
+ * der Sitzung: `{ art, weg }`. Beim nächsten Export wird damit angefangen,
+ * statt die ganze Reihe erneut durchzuprobieren.
  */
-let gemerkteBereichsart = null;
+let gemerkterBereichsweg = null;
+
+/**
+ * Die Wege, einen Render-Bereich zu setzen.
+ *
+ * Der erste Anlauf kannte nur einen: alles in **einem** `SetRenderSettings`.
+ * Die Doku sagt nur, dass `SelectAllFrames` den Bereich ausschaltet, wenn es
+ * `True` ist – nicht, ob Resolve beide Angaben in einem Aufruf zusammen
+ * annimmt, ob die Reihenfolge zählt, oder ob der Schalter überhaupt nötig ist.
+ *
+ * Das Preset anzufassen ist keine Lösung: Es ist das Arbeitsmittel des Hauses
+ * und soll bleiben, wie es ist. Also probiert das Plugin die Wege durch und
+ * lässt sich jeden von Resolve bestätigen.
+ */
+const BEREICHS_WEGE = [
+  {
+    art: 'zusammen',
+    schritte: (von, bis) => [{ SelectAllFrames: false, MarkIn: von, MarkOut: bis }],
+  },
+  {
+    art: 'erst Schalter',
+    schritte: (von, bis) => [{ SelectAllFrames: false }, { MarkIn: von, MarkOut: bis }],
+  },
+  {
+    art: 'erst Bereich',
+    schritte: (von, bis) => [{ MarkIn: von, MarkOut: bis }, { SelectAllFrames: false }],
+  },
+  {
+    // Ohne den Schalter: Manche Fassungen schalten von selbst auf „In/Out
+    // Range", sobald ein Bereich gesetzt ist.
+    art: 'ohne Schalter',
+    schritte: (von, bis) => [{ MarkIn: von, MarkOut: bis }],
+  },
+];
 
 /**
  * Einen Render-Auftrag anlegen und nachsehen, ob der Bereich angekommen ist.
  *
  * Das ist der Kern der Sache: `AddRenderJob()` liefert eine ID, auch wenn
- * Resolve MarkIn/MarkOut verworfen hat – ein Rückgabewert allein beweist hier
- * nichts. Gefragt wird deshalb der Auftrag selbst.
+ * Resolve MarkIn/MarkOut verworfen hat, und `SetRenderSettings` meldet `true`.
+ * Beide Rückgabewerte sagen nur „angekommen", nicht „übernommen" – gefragt
+ * wird deshalb der Auftrag selbst.
  */
-async function auftragMitBereich(project, basis, kandidat) {
-  const gesetzt = await project.SetRenderSettings({
-    ...basis,
-    SelectAllFrames: false,
-    MarkIn: kandidat.von,
-    MarkOut: kandidat.bis,
-  });
-  if (!gesetzt) return { ok: false, grund: t('Resolve hat die Einstellungen abgelehnt.') };
+async function auftragMitBereich(project, basis, kandidat, weg) {
+  const schritte = weg.schritte(kandidat.von, kandidat.bis);
+
+  for (const [nummer, schritt] of schritte.entries()) {
+    // Der Zielordner und der Dateiname gehören in den **ersten** Schritt:
+    // Danach ist nicht gesagt, dass ein zweiter Aufruf sie behält.
+    const einstellungen = nummer === 0 ? { ...basis, ...schritt } : schritt;
+    if (!(await project.SetRenderSettings(einstellungen))) {
+      return { ok: false, grund: t('Resolve hat die Einstellungen abgelehnt.') };
+    }
+  }
 
   const jobId = await project.AddRenderJob();
   if (!jobId) return { ok: false, grund: t('Resolve hat keinen Auftrag angelegt.') };
@@ -438,10 +480,10 @@ async function timelines() {
     let markIn = null;
     let markOut = null;
     try {
-      const marks = await timeline.GetMarkInOut();
-      if (marks && marks.video && Number.isFinite(Number(marks.video.in))) {
-        markIn = toRelativeFrame(Number(marks.video.in), startFrame);
-        markOut = toRelativeFrame(Number(marks.video.out), startFrame);
+      const gelesen = frames.leseMarkInOut(await timeline.GetMarkInOut());
+      if (gelesen) {
+        markIn = toRelativeFrame(gelesen.von, startFrame);
+        markOut = toRelativeFrame(gelesen.bis, startFrame);
       }
     } catch {
       /* Kennt diese Fassung die Methode nicht, gilt die ganze Timeline. */
@@ -535,8 +577,10 @@ async function bereichsDiagnose({ preset } = {}) {
     sag(`GetMarkInOut() wirft: ${fehler.message}`);
   }
 
-  const rohVon = Number(marks?.video?.in);
-  const rohBis = Number(marks?.video?.out);
+  const gelesen = frames.leseMarkInOut(marks);
+  sag(`Gelesen über leseMarkInOut(): ${gelesen ? `${gelesen.von}–${gelesen.bis}` : '(nichts)'}`);
+  const rohVon = gelesen ? gelesen.von : Number.NaN;
+  const rohBis = gelesen ? gelesen.bis : Number.NaN;
   if (!Number.isFinite(rohVon) || !Number.isFinite(rohBis)) {
     sag('→ Kein brauchbares In/Out. Damit kann das Plugin keinen Bereich setzen.');
     return { ok: true, ...bericht };
@@ -570,23 +614,32 @@ async function bereichsDiagnose({ preset } = {}) {
   // gespeicherte Einstellung, und das wäre die Erklärung für alles.
   kandidaten.unshift({ art: 'nur Preset', von: null, bis: null });
 
-  for (const kandidat of kandidaten) {
+  // Jede Zählweise mit jedem Weg – das ist der Punkt dieser Diagnose: Welche
+  // der beiden Unbekannten klemmt, lässt sich nur sehen, wenn beide variiert
+  // werden.
+  const paare = [{ kandidat: kandidaten[0], weg: null }];
+  for (const kandidat of kandidaten.slice(1)) {
+    for (const weg of BEREICHS_WEGE) paare.push({ kandidat, weg });
+  }
+
+  for (const { kandidat, weg } of paare) {
     const nullmessung = kandidat.von === null;
     const versuch = {
-      art: kandidat.art,
+      art: nullmessung ? kandidat.art : `${kandidat.art} / ${weg.art}`,
       gesetzt: nullmessung ? '(nichts)' : `${kandidat.von}–${kandidat.bis}`,
     };
     let jobId = null;
     try {
-      versuch.settingsOk = nullmessung
-        ? true
-        : Boolean(
-            await project.SetRenderSettings({
-              SelectAllFrames: false,
-              MarkIn: kandidat.von,
-              MarkOut: kandidat.bis,
-            }),
-          );
+      versuch.settingsOk = true;
+      if (!nullmessung) {
+        for (const [nummer, schritt] of weg.schritte(kandidat.von, kandidat.bis).entries()) {
+          if (!(await project.SetRenderSettings(schritt))) {
+            versuch.settingsOk = false;
+            versuch.fehlerSchritt = nummer + 1;
+            break;
+          }
+        }
+      }
       jobId = await project.AddRenderJob();
       versuch.jobId = jobId || '(keiner)';
 
@@ -623,6 +676,19 @@ async function bereichsDiagnose({ preset } = {}) {
 }
 
 /**
+ * Wie gut passt ein Paar aus Zählweise und Weg zu dem, was sich bewährt hat?
+ * Zwei Treffer vor einem, einer vor keinem – so bleibt die ganze Reihe als
+ * Rückfall stehen, falls jemand die Resolve-Fassung wechselt.
+ */
+function punkte({ kandidat, weg }) {
+  if (!gemerkterBereichsweg) return 0;
+  return (
+    (kandidat.art === gemerkterBereichsweg.art ? 2 : 0) +
+    (weg.art === gemerkterBereichsweg.weg ? 1 : 0)
+  );
+}
+
+/**
  * Timeline ausspielen.
  *
  * `bereich` ist `{ kandidaten: [{ art, von, bis }] }` – die möglichen
@@ -654,22 +720,25 @@ async function renderTimeline({ preset, targetDir, clipName, bereich, onProgress
   let benutzterBereich = null;
 
   if (bereich && bereich.kandidaten && bereich.kandidaten.length > 0) {
-    // Was sich schon einmal bewährt hat, zuerst – der Rest bleibt als Rückfall
-    // stehen, falls jemand die Resolve-Fassung wechselt.
-    const kandidaten = [...bereich.kandidaten].sort((a, b) =>
-      a.art === gemerkteBereichsart ? -1 : b.art === gemerkteBereichsart ? 1 : 0,
-    );
+    // Zwei Unbekannte: die Zählweise der Zahlen **und** die Art, sie zu
+    // setzen. Also beide durchprobieren – und was sich bewährt hat, zuerst,
+    // damit der zweite Export nicht wieder die ganze Reihe abklopft.
+    const paare = [];
+    for (const kandidat of bereich.kandidaten) {
+      for (const weg of BEREICHS_WEGE) paare.push({ kandidat, weg });
+    }
+    paare.sort((a, b) => punkte(b) - punkte(a));
 
     const gescheitert = [];
-    for (const kandidat of kandidaten) {
-      const versuch = await auftragMitBereich(project, basis, kandidat);
+    for (const { kandidat, weg } of paare) {
+      const versuch = await auftragMitBereich(project, basis, kandidat, weg);
       if (versuch.ok) {
         jobId = versuch.jobId;
-        benutzterBereich = { ...kandidat, geprueft: versuch.geprueft };
-        gemerkteBereichsart = kandidat.art;
+        benutzterBereich = { ...kandidat, weg: weg.art, geprueft: versuch.geprueft };
+        gemerkterBereichsweg = { art: kandidat.art, weg: weg.art };
         break;
       }
-      gescheitert.push(`${kandidat.von}–${kandidat.bis}: ${versuch.grund}`);
+      gescheitert.push(`${kandidat.art}/${weg.art} ${kandidat.von}–${kandidat.bis}: ${versuch.grund}`);
     }
 
     if (!jobId) {

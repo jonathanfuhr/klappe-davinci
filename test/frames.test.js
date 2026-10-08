@@ -155,3 +155,32 @@ describe('Kandidaten für den Render-Bereich', () => {
     ).toEqual([]);
   });
 });
+
+describe('In/Out aus Resolves Antwort lesen', () => {
+  it('liest die dokumentierte Form', () => {
+    expect(frames.leseMarkInOut({ video: { in: 1500, out: 2250 }, audio: { in: 1500, out: 2250 } })).toEqual(
+      { von: 1500, bis: 2250 },
+    );
+  });
+
+  it('nimmt Audio, wenn Video fehlt', () => {
+    expect(frames.leseMarkInOut({ audio: { in: 10, out: 20 } })).toEqual({ von: 10, bis: 20 });
+  });
+
+  it('kommt auch mit einer flachen Antwort zurecht', () => {
+    // Genau hier lag die Falle: Der erste Anlauf verlangte `marks.video.in`.
+    // Fehlte dieser eine Weg, galt die Timeline als ohne Bereich – und das
+    // sah im Panel genauso aus wie „Resolve ignoriert den Bereich".
+    expect(frames.leseMarkInOut({ in: 5, out: 9 })).toEqual({ von: 5, bis: 9 });
+    expect(frames.leseMarkInOut({ markIn: 5, markOut: 9 })).toEqual({ von: 5, bis: 9 });
+    expect(frames.leseMarkInOut({ MarkIn: 5, MarkOut: 9 })).toEqual({ von: 5, bis: 9 });
+  });
+
+  it('gibt null zurück, wenn kein Bereich darin steht', () => {
+    expect(frames.leseMarkInOut(null)).toBeNull();
+    expect(frames.leseMarkInOut({})).toBeNull();
+    expect(frames.leseMarkInOut('unsinn')).toBeNull();
+    // Gleiche Zahlen sind kein Bereich.
+    expect(frames.leseMarkInOut({ video: { in: 7, out: 7 } })).toBeNull();
+  });
+});

@@ -30,6 +30,10 @@ module.exports = {
   'In/Out gesetzt ({von}–{bis})': 'In/out set ({von}–{bis})',
   'ganze Timeline': 'whole timeline',
   'ganze Timeline (Resolve nennt kein In/Out)': 'whole timeline (Resolve reports no in/out)',
+  'Kein In/Out: Diese Resolve-Fassung nennt keins. Die ganze Timeline wird ausgespielt.':
+    'No in/out: this version of Resolve reports none. The whole timeline is rendered.',
+  'Kein In/Out in der Timeline gesetzt – die ganze Timeline wird ausgespielt.':
+    'No in/out set in the timeline – the whole timeline is rendered.',
   'Bereich {von}–{bis} ({anzahl} Frames) wird ausgespielt …':
     'Rendering the range {von}–{bis} ({anzahl} frames) …',
   'Ausgespielt wurde der Bereich {von}–{bis} ({anzahl} Frames).':
