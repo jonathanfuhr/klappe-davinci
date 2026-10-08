@@ -13,7 +13,18 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 
 - [ ] `./install.sh` läuft ohne Fehler durch und meldet, welches
       `WorkflowIntegration.node` es genommen hat
-- [ ] `./tools/installer-bauen.sh` baut `dist/klappe-installer.sh`
+- [ ] `./tools/installer-bauen.sh` baut `dist/klappe-installer.sh` **und** legt
+      ihn im Tauschordner ab (`_IT/klappe-davinci-installer.sh`)
+- [ ] Der Werteblock der dort liegenden Datei ist danach **unverändert** –
+      Serveradresse, Ablagepfade, vorgewähltes Preset, Tastenkürzel
+- [ ] Die abgelegte Datei trägt die Marken `>>> KLAPPE-WERTE >>>`
+- [ ] Zweiter Lauf: Werte bleiben, der Hinweis auf die fehlenden Marken kommt
+      nicht mehr
+- [ ] `KLAPPE_WERTE_AUS=-` baut mit den Werkseinstellungen aus dem Repo
+- [ ] `KLAPPE_INSTALLER_ZIEL=""` baut, ohne irgendwo abzulegen
+- [ ] Nicht gemountetes Laufwerk → Bau läuft durch, Meldung statt Fehler
+- [ ] Die Nutzlast der abgelegten Datei lässt sich auspacken und stimmt mit
+      `src/` überein
 - [ ] Der gebaute Installer läuft auf einem Rechner **ohne** das Repo durch und
       meldet als Quelle „mitgeliefert"
 - [ ] Werteblock im gebauten Installer ändern, speichern, ausführen → die Werte

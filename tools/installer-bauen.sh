@@ -10,11 +10,61 @@
 # mehr Platz als rohe Bytes, hat aber einen Grund: So bleibt die Datei reiner
 # Text und übersteht das Bearbeiten der Werte oben in jedem Editor. Mit rohen
 # Bytes wäre sie beim ersten Speichern kaputt.
+#
+# Zwei Dinge passieren zusätzlich, damit niemand sie von Hand machen muss:
+#
+#   1. **Der Werteblock wird übernommen.** Liegt am Ablageort schon ein
+#      Installer, wird genau das, was zwischen den Marken `>>> KLAPPE-WERTE >>>`
+#      steht, in die neue Datei gehoben. Serveradresse, Ablagepfade und das
+#      vorgewählte Preset überleben damit jede neue Fassung des Plugins – ohne
+#      sie wäre jeder Neubau ein Zurücksetzen auf Werkseinstellungen.
+#   2. **Die Datei landet im Tauschordner.** Dort holen die Schnittplätze sie
+#      ab. Ist das Laufwerk nicht da, wird trotzdem gebaut und gesagt, dass die
+#      Kopie fehlt – ein nicht gemountetes Netzlaufwerk ist kein Baufehler.
+#
+# Beides lässt sich übersteuern:
+#   KLAPPE_INSTALLER_ZIEL=/pfad/datei.sh   anderer Ablageort ("" = nicht kopieren)
+#   KLAPPE_WERTE_AUS=/pfad/alt.sh          Werteblock aus dieser Datei nehmen
+#   KLAPPE_WERTE_AUS=-                     Werteblock des Repos nehmen
 
 set -euo pipefail
 
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ZIEL="${WURZEL}/dist/klappe-installer.sh"
+
+# Wo die Schnittplätze ihn abholen.
+ABLAGE="${KLAPPE_INSTALLER_ZIEL-/Volumes/03_Tauschordner/_IT/klappe-davinci-installer.sh}"
+
+MARKE_AUF='# >>> KLAPPE-WERTE >>>'
+MARKE_ZU='# <<< KLAPPE-WERTE <<<'
+
+# Den Werteblock aus einer Datei herausschneiden – ohne die Marken selbst.
+werte_lesen() {
+  awk -v auf="${MARKE_AUF}" -v zu="${MARKE_ZU}" '
+    $0 == zu { drin = 0 }
+    drin     { print }
+    $0 == auf { drin = 1 }
+  ' "$1"
+}
+
+# Dasselbe für Dateien, die die Marken noch nicht kennen – gebaut aus einer
+# Fassung von vor dieser Änderung. Genau einmal gebraucht: Danach trägt die
+# Datei am Ablageort die Marken selbst.
+#
+# Verankert an den beiden Überschriften und **nicht** an den Balkenzeilen: Die
+# bestehen aus Mehrbyte-Zeichen, und daran scheitert ein byte-orientiertes awk
+# (`═+` bezieht das Plus auf das letzte Byte). Die Überschriften sind reines
+# ASCII und eindeutig.
+werte_lesen_alt() {
+  local von bis
+  von="$(grep -n 'Alles leer lassen ist erlaubt' "$1" | head -1 | cut -d: -f1)"
+  bis="$(grep -n 'Ab hier nichts mehr eintragen' "$1" | head -1 | cut -d: -f1)"
+  [ -n "${von}" ] && [ -n "${bis}" ] || return 0
+
+  # +2 und -2: Zwischen Überschrift und Werten steht je eine Balkenzeile.
+  [ "$((von + 2))" -le "$((bis - 2))" ] || return 0
+  sed -n "$((von + 2)),$((bis - 2))p" "$1"
+}
 
 # Genau das, was im Plugin-Ordner landen soll – Tests, Doku und die Installer
 # selbst gehören nicht hinein.
@@ -45,19 +95,98 @@ else
   UMBRUCH=(base64)
 fi
 
+# ---------------------------------------------------- Werteblock übernehmen
+
+# Woher die Werte kommen: ausdrücklich genannt, sonst aus der Datei am
+# Ablageort, sonst aus dem Repo.
+WERTE_QUELLE=""
+if [ -n "${KLAPPE_WERTE_AUS-}" ]; then
+  [ "${KLAPPE_WERTE_AUS}" != "-" ] && WERTE_QUELLE="${KLAPPE_WERTE_AUS}"
+elif [ -n "${ABLAGE}" ] && [ -f "${ABLAGE}" ]; then
+  WERTE_QUELLE="${ABLAGE}"
+fi
+
+KOPF="${WURZEL}/install.sh"
+if [ -n "${WERTE_QUELLE}" ]; then
+  if [ ! -f "${WERTE_QUELLE}" ]; then
+    echo "FEHLER: ${WERTE_QUELLE} gibt es nicht." >&2
+    exit 1
+  fi
+
+  werte_lesen "${WERTE_QUELLE}" > "${TMP}/werte"
+  if [ ! -s "${TMP}/werte" ]; then
+    werte_lesen_alt "${WERTE_QUELLE}" > "${TMP}/werte"
+    if [ -s "${TMP}/werte" ]; then
+      echo "Hinweis: ${WERTE_QUELLE} kennt die Marken noch nicht –"
+      echo "         der Block wurde über die Balkenzeilen gelesen."
+    else
+      # Weder Marken noch Balken: Lieber abbrechen als die Werte des Hauses
+      # stillschweigend auf Werkseinstellung zurücksetzen.
+      echo "FEHLER: In ${WERTE_QUELLE} ist kein Werteblock zu finden." >&2
+      echo "        Werte von Hand übernehmen oder KLAPPE_WERTE_AUS=- setzen." >&2
+      exit 1
+    fi
+  fi
+
+  # Grobe Gegenprobe: Ohne eine Zuweisung ist das kein Werteblock, sondern
+  # irgendein Stück Datei – und das würde den Installer unbrauchbar machen.
+  if ! grep -qE '^[A-Z_]+=' "${TMP}/werte"; then
+    echo "FEHLER: Der gelesene Block aus ${WERTE_QUELLE} enthält keine Werte." >&2
+    exit 1
+  fi
+
+  # Den Block im Kopf austauschen. `awk` statt `sed`, weil die Werte Pfade mit
+  # Schrägstrichen und Umlaute enthalten – daran scheitert jede sed-Ersetzung.
+  awk -v auf="${MARKE_AUF}" -v zu="${MARKE_ZU}" -v datei="${TMP}/werte" '
+    $0 == auf { print; while ((getline zeile < datei) > 0) print zeile; drin = 1; next }
+    $0 == zu  { drin = 0 }
+    !drin     { print }
+  ' "${WURZEL}/install.sh" > "${TMP}/install.sh"
+  KOPF="${TMP}/install.sh"
+fi
+
 mkdir -p "${WURZEL}/dist"
 {
-  cat "${WURZEL}/install.sh"
+  cat "${KOPF}"
   printf '\n__KLAPPE_NUTZLAST__\n'
   "${UMBRUCH[@]}" < "${TMP}/nutzlast.tar.gz"
 } > "${ZIEL}"
 
 chmod +x "${ZIEL}"
 
+# Nachsehen statt annehmen: Ist der Werteblock wirklich angekommen?
+if [ -n "${WERTE_QUELLE}" ]; then
+  if ! diff -q <(werte_lesen "${ZIEL}") "${TMP}/werte" >/dev/null; then
+    echo "FEHLER: Der übernommene Werteblock stimmt nicht mit der Quelle überein." >&2
+    exit 1
+  fi
+fi
+
+# Und: lässt sich die gebaute Datei überhaupt noch lesen?
+bash -n "${ZIEL}" || {
+  echo "FEHLER: Die gebaute Datei ist kein gültiges Shell-Skript." >&2
+  exit 1
+}
+
 GROESSE="$(du -h "${ZIEL}" | cut -f1 | tr -d ' ')"
 echo "Gebaut: ${ZIEL} (${GROESSE})"
-echo
-echo "Auf dem Zielrechner:"
-echo "  1. Datei hinüberkopieren"
-echo "  2. Oben im Block die Werte fürs Haus eintragen und speichern"
-echo "  3. ./klappe-installer.sh"
+if [ -n "${WERTE_QUELLE}" ]; then
+  echo "Werte übernommen aus: ${WERTE_QUELLE}"
+  echo "  Server: $(grep -m1 '^SERVER=' "${ZIEL}" | cut -d'"' -f2)"
+  echo "  Preset: $(grep -m1 '^VORGEWAEHLTES_PRESET=' "${ZIEL}" | cut -d'"' -f2)"
+else
+  echo "Werte: aus dem Repo (Werkseinstellung)"
+fi
+
+# ------------------------------------------------------------- Ablegen
+
+if [ -z "${ABLAGE}" ]; then
+  echo "Ablage: übersprungen (KLAPPE_INSTALLER_ZIEL ist leer)"
+elif [ -d "$(dirname "${ABLAGE}")" ]; then
+  cp "${ZIEL}" "${ABLAGE}"
+  chmod +x "${ABLAGE}" 2>/dev/null || true
+  echo "Abgelegt: ${ABLAGE}"
+else
+  echo "Ablage: $(dirname "${ABLAGE}") ist nicht da – Laufwerk nicht gemountet?"
+  echo "        Die gebaute Datei liegt in dist/ und kann von Hand hinüber."
+fi

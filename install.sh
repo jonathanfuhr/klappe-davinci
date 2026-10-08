@@ -17,7 +17,14 @@ set -euo pipefail
 # ══════════════════════════════════════════════════════════════════════════
 #  Hier eintragen, was an diesem Schnittplatz gelten soll.
 #  Alles leer lassen ist erlaubt – dann fragt das Panel danach.
+#
+#  Die beiden Marken unten sind keine Zierde: `tools/installer-bauen.sh`
+#  übernimmt beim Neubauen genau das, was dazwischen steht, aus der
+#  vorhandenen Datei. So überlebt der Werteblock des Hauses jede neue Fassung
+#  des Plugins. Also nichts zwischen den Marken löschen – die Werte selbst
+#  darf man natürlich ändern.
 # ══════════════════════════════════════════════════════════════════════════
+# >>> KLAPPE-WERTE >>>
 
 # Adresse der Klappe-Instanz, z. B. "klappe.example.de"
 SERVER=""
@@ -89,6 +96,7 @@ TASTENKUERZEL=""
 # Schon vorhandene eigene Einstellungen (`config.json`) löschen, damit die
 # Vorgaben von oben greifen? Der Zugangstoken bleibt davon unberührt.
 EIGENE_EINSTELLUNGEN_ZURUECKSETZEN="nein"
+# <<< KLAPPE-WERTE <<<
 
 # ══════════════════════════════════════════════════════════════════════════
 #  Ab hier nichts mehr eintragen.

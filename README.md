@@ -54,9 +54,37 @@ Nutzlast dahinter.
 ./tools/installer-bauen.sh
 ```
 
-Ergebnis: `dist/klappe-installer.sh` (~120 KB). Auf dem Zielrechner
-hinüberkopieren, oben im Werteblock eintragen, was dort gelten soll,
-**speichern** und ausführen – mehr braucht es nicht.
+Das Skript tut drei Dinge:
+
+1. baut `dist/klappe-installer.sh` (~190 KB),
+2. **übernimmt den Werteblock** aus der Datei, die am Ablageort schon liegt,
+3. legt das Ergebnis dort ab: `/Volumes/03_Tauschordner/_IT/klappe-davinci-installer.sh`.
+
+Auf dem Zielrechner also nur noch hinüberkopieren und ausführen – die Werte des
+Hauses stehen schon drin.
+
+> **Warum der Werteblock übernommen wird.** Serveradresse, Ablagepfade und das
+> vorgewählte Preset stehen oben in der Datei, und dort hat sie jemand
+> eingetragen. Würde jeder Neubau mit den Werkseinstellungen aus dem Repo
+> überschreiben, wäre jede neue Fassung des Plugins ein stilles Zurücksetzen –
+> und das fiele erst auf, wenn ein Schnittplatz plötzlich keinen Server mehr
+> findet.
+>
+> Erkannt wird der Block an zwei Marken (`>>> KLAPPE-WERTE >>>`). Eine Datei
+> ohne diese Marken (aus einer älteren Fassung) wird über die beiden
+> Überschriften gelesen; danach trägt sie die Marken selbst. Findet sich
+> überhaupt kein Block, bricht der Bau ab, statt die Werte wegzuwerfen.
+
+Beides lässt sich übersteuern:
+
+| Variable | Wirkung |
+| --- | --- |
+| `KLAPPE_INSTALLER_ZIEL=/pfad/datei.sh` | anderer Ablageort; `""` = nicht ablegen |
+| `KLAPPE_WERTE_AUS=/pfad/alt.sh` | Werteblock aus dieser Datei nehmen |
+| `KLAPPE_WERTE_AUS=-` | Werteblock des Repos nehmen (Werkseinstellung) |
+
+Ist das Netzlaufwerk nicht gemountet, wird trotzdem gebaut und gesagt, dass die
+Kopie fehlt – ein fehlendes Laufwerk ist kein Baufehler.
 
 > Die Nutzlast steht als Base64 hinter einer Trennlinie, nicht als rohe Bytes.
 > Das kostet ein Drittel mehr Platz, hält die Datei aber reinen Text: So
@@ -64,7 +92,7 @@ hinüberkopieren, oben im Werteblock eintragen, was dort gelten soll,
 > Zeile `__KLAPPE_NUTZLAST__` gehört nichts geändert.
 
 Für Windows gibt es das noch nicht – dort braucht `install.ps1` weiterhin den
-Ordner daneben.
+Ordner daneben, und sein Werteblock wird nicht übernommen.
 
 ### Vorgaben und eigene Einstellungen
 
