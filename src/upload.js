@@ -47,13 +47,18 @@ async function projects({ ausser = '' } = {}) {
   const alle = Array.isArray(data) ? data : [];
   const einstellungen = config.read();
 
-  return projektliste.sichtbare(alle, { ausser }).map((projekt) => ({
+  const mitNamen = projektliste.sichtbare(alle, { ausser }).map((projekt) => ({
     ...projekt,
     listenname: projektliste.listenname(projekt, {
       format: einstellungen.projectListFormat,
       nummernfeld: einstellungen.projectNumberField,
     }),
   }));
+
+  // Sortiert nach dem, was in der Zeile steht – der Server ordnet nach
+  // „zuletzt geändert", und das ist keine Ordnung, in der man eine
+  // Projektnummer findet.
+  return projektliste.nachListennamen(mitNamen);
 }
 
 async function videos(projectId) {

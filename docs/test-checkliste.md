@@ -179,6 +179,10 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Ohne passendes Feld greift die Ziffernfolge am Namensanfang – und steht
       danach **nicht** zweimal da
 - [ ] Ein geändertes Format in den Einstellungen wirkt sofort, ohne Neustart
+- [ ] Die Liste ist nach der Zeile sortiert: Nummern aufsteigend, danach die
+      Projekte ohne Nummer nach Kundennamen
+- [ ] `999` steht vor `2601` (als Zahl, nicht als Zeichenkette)
+- [ ] Ein Kunde mit Umlaut steht an der erwarteten Stelle, nicht am Ende
 - [ ] Archivierte Projekte stehen **nicht** in der Liste
 - [ ] Ein archiviertes Projekt, auf das die offene Timeline zeigt, steht
       trotzdem da – die Auswahl fällt nicht stillschweigend auf ein anderes

@@ -116,4 +116,30 @@ function sichtbare(projekte, { ausser = '' } = {}) {
   );
 }
 
-module.exports = { zusammensetzen, listenname, sichtbare, nummerUndName };
+/**
+ * Nach dem sortieren, was in der Zeile **steht**.
+ *
+ * Der Server liefert die Projekte in seiner eigenen Ordnung (zuletzt geändert
+ * zuerst). Solange die Zeile „Name (Kunde)" hieß, fiel das kaum auf; seit die
+ * Projektnummer vorn steht, sucht man im Aufklappmenü nach ihr – und eine nach
+ * Änderungsdatum sortierte Nummernliste ist keine Liste, sondern ein Haufen.
+ *
+ * Sortiert wird über den **Listennamen**, nicht über ein eigenes Feld: So
+ * stimmt die Ordnung immer mit dem überein, was man sieht, auch wenn jemand
+ * die Vorlage umstellt. Projekte mit Nummer stehen dadurch vor denen ohne (die
+ * fangen mit dem Kundennamen an) – genau die Ordnung, nach der im Haus gesucht
+ * wird.
+ *
+ * `numeric: true` ist der Grund für den Collator: Als Zeichenketten stünde
+ * `999` hinter `2601`. Und `de`, weil Umlaute in Kundennamen sonst hinten
+ * landen.
+ */
+const SORTIERUNG = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
+
+function nachListennamen(projekte) {
+  return [...(Array.isArray(projekte) ? projekte : [])].sort((a, b) =>
+    SORTIERUNG.compare(a?.listenname || a?.name || '', b?.listenname || b?.name || ''),
+  );
+}
+
+module.exports = { zusammensetzen, listenname, sichtbare, nummerUndName, nachListennamen };

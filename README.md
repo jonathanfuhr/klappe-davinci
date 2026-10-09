@@ -263,6 +263,12 @@ bereit – die Adresse kommt als `webUrl` vom Server, sie wird nicht geraten.
 
   Diese Vorlage gilt **nur für die Anzeige**. Der Dateiname folgt weiterhin
   Klappes Schema, damit die Datei heißt wie der Download.
+
+  **Sortiert wird nach dem, was in der Zeile steht** – nicht nach der Ordnung
+  des Servers (zuletzt geändert zuerst). Projekte mit Nummer stehen damit vor
+  denen ohne, und die fangen mit dem Kundennamen an: genau die Ordnung, in der
+  im Haus gesucht wird. Nummern zählen als Zahlen (`999` vor `2601`), Umlaute
+  stehen, wo man sie sucht.
 - **Archivierte Projekte** stehen nicht in der Liste: Dort wird nichts mehr
   aktualisiert, ein Upload hinein wäre fast immer ein Versehen. Eine Ausnahme
   gilt für das Projekt, auf das die offene Timeline schon zeigt – es

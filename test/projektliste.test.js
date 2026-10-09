@@ -121,3 +121,79 @@ describe('Archivierte Projekte', () => {
     ]);
   });
 });
+
+describe('Reihenfolge in der Liste', () => {
+  const zeile = (listenname, id = listenname) => ({ id, listenname });
+
+  it('sortiert nach dem, was in der Zeile steht', () => {
+    const sortiert = projektliste.nachListennamen([
+      zeile('2601_Beispiel_Kampagne'),
+      zeile('2542_Muster_Imagefilm'),
+      zeile('2603_Beispiel_Teaser'),
+    ]);
+    expect(sortiert.map((p) => p.listenname)).toEqual([
+      '2542_Muster_Imagefilm',
+      '2601_Beispiel_Kampagne',
+      '2603_Beispiel_Teaser',
+    ]);
+  });
+
+  it('zählt Nummern als Zahlen, nicht als Zeichenketten', () => {
+    // Als Zeichenketten stünde `999` hinter `2601` – deshalb der Collator
+    // mit `numeric: true`.
+    const sortiert = projektliste.nachListennamen([
+      zeile('2601_Kunde_Projekt'),
+      zeile('999_Kunde_Projekt'),
+      zeile('1200_Kunde_Projekt'),
+    ]);
+    expect(sortiert.map((p) => p.listenname)).toEqual([
+      '999_Kunde_Projekt',
+      '1200_Kunde_Projekt',
+      '2601_Kunde_Projekt',
+    ]);
+  });
+
+  it('stellt Projekte mit Nummer vor die ohne – die fangen mit dem Kunden an', () => {
+    const sortiert = projektliste.nachListennamen([
+      zeile('Ahrens_Internes'),
+      zeile('2601_Beispiel_Kampagne'),
+      zeile('Zeller_Testschnitt'),
+    ]);
+    expect(sortiert.map((p) => p.listenname)).toEqual([
+      '2601_Beispiel_Kampagne',
+      'Ahrens_Internes',
+      'Zeller_Testschnitt',
+    ]);
+  });
+
+  it('sortiert Umlaute dorthin, wo man sie sucht', () => {
+    const sortiert = projektliste.nachListennamen([
+      zeile('Zeller_Film'),
+      zeile('Ötztal_Film'),
+      zeile('Ahrens_Film'),
+    ]);
+    expect(sortiert.map((p) => p.listenname)).toEqual([
+      'Ahrens_Film',
+      'Ötztal_Film',
+      'Zeller_Film',
+    ]);
+  });
+
+  it('fällt auf den Projektnamen zurück, wenn kein Listenname da ist', () => {
+    const sortiert = projektliste.nachListennamen([{ id: 'b', name: 'Beta' }, { id: 'a', name: 'Alpha' }]);
+    expect(sortiert.map((p) => p.name)).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('lässt die Eingabe unberührt', () => {
+    // Die Liste kommt aus dem API-Client; sie an der Stelle umzusortieren wäre
+    // eine Nebenwirkung, die niemand erwartet.
+    const eingabe = [zeile('B'), zeile('A')];
+    projektliste.nachListennamen(eingabe);
+    expect(eingabe.map((p) => p.listenname)).toEqual(['B', 'A']);
+  });
+
+  it('kommt mit nichts zurecht', () => {
+    expect(projektliste.nachListennamen(null)).toEqual([]);
+    expect(projektliste.nachListennamen([])).toEqual([]);
+  });
+});
