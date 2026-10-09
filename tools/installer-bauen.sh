@@ -180,13 +180,52 @@ fi
 
 # ------------------------------------------------------------- Ablegen
 
+# Die .app zum Doppelklicken – für die Kollegen der einfachere Weg. Sie
+# bekommt **denselben** Installer hineingelegt, damit es nicht zwei Fassungen
+# gibt, die auseinanderlaufen können.
+APP=""
+if [ "${KLAPPE_APP-ja}" = "ja" ]; then
+  if "${WURZEL}/tools/app-bauen.sh" "${ZIEL}"; then
+    APP="${WURZEL}/dist/Klappe-Panel installieren.app"
+  else
+    echo "WARNUNG: Die .app ließ sich nicht bauen – die .sh steht trotzdem." >&2
+  fi
+fi
+
 if [ -z "${ABLAGE}" ]; then
   echo "Ablage: übersprungen (KLAPPE_INSTALLER_ZIEL ist leer)"
 elif [ -d "$(dirname "${ABLAGE}")" ]; then
   cp "${ZIEL}" "${ABLAGE}"
   chmod +x "${ABLAGE}" 2>/dev/null || true
   echo "Abgelegt: ${ABLAGE}"
+
+  if [ -n "${APP}" ]; then
+    APP_ABLAGE="$(dirname "${ABLAGE}")/$(basename "${APP}")"
+    rm -rf "${APP_ABLAGE}"
+    # `ditto` und nicht `cp -R`: Bei einem App-Bundle gehören die Rechte dazu,
+    # und daran hängt, ob macOS es noch startet.
+    #
+    # `--noextattr --norsrc`, weil die SMB-Freigabe keine erweiterten Attribute
+    # annimmt – `ditto` bricht dort sonst mit „Permission denied" auf seinen
+    # eigenen `.BC.T_*`-Hilfsdateien ab. Für das Siegel ist das gleichgültig:
+    # Es steckt im Programm selbst und in `_CodeSignature`, nicht in xattrs.
+    # Gegengeprüft wird es gleich darunter.
+    ditto --noextattr --norsrc "${APP}" "${APP_ABLAGE}"
+
+    # Lesen und starten darf jeder: Auf der Freigabe liegt die App für die
+    # anderen Schnittplätze, nicht für den, der sie gebaut hat.
+    chmod -R a+rX "${APP_ABLAGE}" 2>/dev/null || true
+    # Ein Quarantäne-Merkmal würde beim Kollegen „nicht geöffnet werden,
+    # weil der Entwickler nicht verifiziert ist" ergeben. Über die Freigabe
+    # kommt normalerweise keins mit – falls doch, kommt es hier weg.
+    xattr -dr com.apple.quarantine "${APP_ABLAGE}" 2>/dev/null || true
+    if codesign --verify --deep "${APP_ABLAGE}" >/dev/null 2>&1; then
+      echo "Abgelegt: ${APP_ABLAGE}"
+    else
+      echo "Abgelegt: ${APP_ABLAGE} (WARNUNG: Siegel prüft dort nicht durch)"
+    fi
+  fi
 else
   echo "Ablage: $(dirname "${ABLAGE}") ist nicht da – Laufwerk nicht gemountet?"
-  echo "        Die gebaute Datei liegt in dist/ und kann von Hand hinüber."
+  echo "        Die gebauten Dateien liegen in dist/ und können von Hand hinüber."
 fi

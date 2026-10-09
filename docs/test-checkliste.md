@@ -25,6 +25,29 @@ eine laufende Produktion.** Ein Ersetzen löscht Kommentare.
 - [ ] Nicht gemountetes Laufwerk → Bau läuft durch, Meldung statt Fehler
 - [ ] Die Nutzlast der abgelegten Datei lässt sich auspacken und stimmt mit
       `src/` überein
+- [ ] Die Nutzlast enthält **nur** die Positivliste (main.js, manifest.xml,
+      package.json, README.md, LICENSE, src) – kein `dist`, kein `tools`
+- [ ] `./install.sh` aus dem Repo installiert dieselbe Positivliste; `dist` und
+      `tools` landen **nicht** im Plugin-Ordner (und verschwinden dort, wenn
+      eine ältere Fassung sie hinterlassen hat)
+- [ ] `./klappe-davinci-installer.sh --werte` nennt Server, Preset, Pfade,
+      Tastenkürzel – und warnt, wenn eigene Einstellungen zurückgesetzt werden
+
+## Die .app zum Doppelklicken
+
+- [ ] `tools/installer-bauen.sh` baut `dist/Klappe-Panel installieren.app` mit
+- [ ] Die App liegt im Tauschordner neben der `.sh`
+- [ ] `codesign --verify --deep` prüft bei der abgelegten App durch
+- [ ] Doppelklick zeigt **erst** einen Dialog mit Server, Preset und Pfaden –
+      „Abbrechen" installiert nichts
+- [ ] Ist der Plugin-Ordner beschreibbar, kommt **keine** Passwortfrage
+- [ ] Ist er es nicht, kommt der macOS-Dialog (nicht ein hängendes `sudo`)
+- [ ] `vorgaben.json` landet im Benutzerordner des angemeldeten Menschen, nicht
+      in `/var/root`
+- [ ] Das Tastenkürzel steht in **seinen** Resolve-Einstellungen
+- [ ] Am Ende eine Meldung mit der vollständigen Ausgabe
+- [ ] Nach dem Resolve-Neustart ist das Panel da
+- [ ] An einem Schnittplatz, der das Repo nicht hat, läuft die App genauso
 - [ ] Der gebaute Installer läuft auf einem Rechner **ohne** das Repo durch und
       meldet als Quelle „mitgeliefert"
 - [ ] Werteblock im gebauten Installer ändern, speichern, ausführen → die Werte

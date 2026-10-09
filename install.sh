@@ -116,9 +116,20 @@ SELBST="${BASH_SOURCE[0]}"
 # als Trennlinie zur Nutzlast.
 MARKE='__KLAPPE_NUTZ''LAST__'
 
+# Alles, was wieder weg soll, an einer Stelle: Ein zweites `trap … EXIT`
+# würde das erste ersetzen, und dann bliebe das Ausgepackte liegen.
+WEGRAEUMEN=()
+aufraeumen() {
+  local pfad
+  for pfad in ${WEGRAEUMEN[@]+"${WEGRAEUMEN[@]}"}; do
+    rm -rf "${pfad}"
+  done
+}
+trap aufraeumen EXIT
+
 if grep -q "^${MARKE}\$" "${SELBST}" 2>/dev/null; then
   AUSPACKEN="$(mktemp -d)"
-  trap 'rm -rf "${AUSPACKEN}"' EXIT
+  WEGRAEUMEN+=("${AUSPACKEN}")
 
   # macOS bringt BSD-base64 mit; --decode gibt es erst in neueren Fassungen.
   if base64 --decode </dev/null >/dev/null 2>&1; then
@@ -135,6 +146,23 @@ if grep -q "^${MARKE}\$" "${SELBST}" 2>/dev/null; then
 else
   QUELLE="$(cd "$(dirname "${SELBST}")" && pwd)"
   HERKUNFT="Ordner daneben"
+fi
+
+# Nur nachsehen, was eingestellt ist – die .app zeigt das vor dem Installieren
+# im Dialog, und auf der Befehlszeile ist es die schnellste Antwort auf
+# „welche Werte stecken eigentlich in dieser Datei?".
+if [ "${1-}" = "--werte" ]; then
+  echo "Server: ${SERVER:-(keiner)}"
+  echo "Sprache: ${SPRACHE}"
+  echo "Vorgewähltes Preset: ${VORGEWAEHLTES_PRESET:-(keins)}"
+  echo "Zeichnungen: ${ABLAGE_ZEICHNUNGEN:-(Benutzerordner)}"
+  echo "Zuordnung: ${ABLAGE_ZUORDNUNG:-(Benutzerordner)}"
+  echo "Interne Fassungen: ${INTERN_MODUS}"
+  [ -n "${TASTENKUERZEL}" ] && echo "Tastenkürzel: ${TASTENKUERZEL}"
+  if [ "${EIGENE_EINSTELLUNGEN_ZURUECKSETZEN}" = "ja" ]; then
+    echo "ACHTUNG: Eigene Einstellungen am Schnittplatz werden zurückgesetzt."
+  fi
+  exit 0
 fi
 
 ZIEL="/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/${PLUGIN_ID}"
@@ -172,35 +200,103 @@ fi
 echo "Natives Modul gefunden: ${NODE_MODUL}"
 
 # ------------------------------------------------------------- Kopieren
+#
 # Der Ordner unter /Library gehört root, ist aber je nach Installation für
-# alle schreibbar. Erst ohne sudo versuchen – wer nicht danach gefragt wird,
-# muss auch kein Passwort eintippen.
-if mkdir -p "${ZIEL}" 2>/dev/null; then
-  SUDO=""
-else
+# alle schreibbar. Erst ohne Rechte versuchen – wer nicht gefragt wird, muss
+# auch kein Passwort eintippen.
+#
+# Alles, was Rechte braucht, steht in **einer** Datei und läuft in einem Stück.
+# Zwei Gründe: ein Passwort statt vier, und – der wichtigere – die
+# Anführungszeichen bleiben beherrschbar. Ohne Terminal (etwa aus der .app)
+# kann `sudo` nicht nach dem Passwort fragen; dann führt der Weg über
+# `osascript … with administrator privileges`, und der müsste sonst eine
+# Befehlszeile mit Leerzeichen und einem Dutzend `--exclude` durch zwei
+# Zitierschichten bringen. Ein Skriptpfad ist dagegen ein einzelnes Wort.
+#
+# **Nur dieser Block** läuft erhöht. Die Vorgaben und das Tastenkürzel gehören
+# dem Menschen, der installiert – liefen sie als root, landeten sie in
+# `/var/root` und wären damit für niemanden da.
+
+# Erst **unprivilegiert** zusammenstellen, was in den Plugin-Ordner gehört.
+#
+# Eine Positivliste und keine Ausschlussliste. Vorher wurde mit `rsync` und
+# einem Dutzend `--exclude` kopiert, und was dort nicht stand, kam mit: `dist`
+# und `tools` waren nie ausgeschlossen, also lagen zuletzt 950 KB Installer
+# samt gebauter .app im Plugin-Ordner. Eine Ausschlussliste wächst nicht mit;
+# eine Positivliste zwingt dazu, Neues ausdrücklich hineinzunehmen.
+#
+# Dieselbe Liste benutzt `tools/installer-bauen.sh` für die Nutzlast – deshalb
+# ist der selbsttragende Installer von diesem Fehler nie betroffen gewesen.
+INHALT=(main.js manifest.xml package.json README.md LICENSE src)
+
+AUFBAU="$(mktemp -d)"
+WEGRAEUMEN+=("${AUFBAU}")
+
+for eintrag in "${INHALT[@]}"; do
+  if [ ! -e "${QUELLE}/${eintrag}" ]; then
+    echo "FEHLER: ${eintrag} fehlt in ${QUELLE}." >&2
+    exit 1
+  fi
+  cp -R "${QUELLE}/${eintrag}" "${AUFBAU}/"
+done
+
+# Was der Finder hinterlässt, gehört nicht in ein Plugin.
+find "${AUFBAU}" -name '.DS_Store' -delete 2>/dev/null || true
+
+# Das native Modul kommt aus der **lokalen** Resolve-Installation und gehört
+# zur installierten Fassung – deshalb liegt es nicht im Repo, sondern wird hier
+# dazugelegt.
+cp "${NODE_MODUL}" "${AUFBAU}/WorkflowIntegration.node"
+
+# ------------------------------------------------------------- Kopieren
+#
+# Der Ordner unter /Library gehört root, ist aber je nach Installation für
+# alle schreibbar. Erst ohne Rechte versuchen – wer nicht gefragt wird, muss
+# auch kein Passwort eintippen.
+#
+# Alles, was Rechte braucht, steht in **einer** Datei und läuft in einem Stück.
+# Zwei Gründe: ein Passwort statt vier, und – der wichtigere – die
+# Anführungszeichen bleiben beherrschbar. Ohne Terminal (etwa aus der .app)
+# kann `sudo` nicht nach dem Passwort fragen; dann führt der Weg über
+# `osascript … with administrator privileges`, und der müsste sonst eine
+# Befehlszeile mit Leerzeichen und einem Dutzend `--exclude` durch zwei
+# Zitierschichten bringen. Ein Skriptpfad ist dagegen ein einzelnes Wort.
+#
+# **Nur dieser Block** läuft erhöht. Die Vorgaben und das Tastenkürzel gehören
+# dem Menschen, der installiert – liefen sie als root, landeten sie in
+# `/var/root` und wären damit für niemanden da.
+#
+# `--delete` ohne jedes `--exclude`: Der Zielordner wird genau das, was in
+# `${AUFBAU}` steht. Damit verschwindet auch, was eine frühere Fassung des
+# Installers dort hinterlassen hat.
+
+ADMIN_SKRIPT="$(mktemp -t klappe-admin)"
+WEGRAEUMEN+=("${ADMIN_SKRIPT}")
+
+cat > "${ADMIN_SKRIPT}" <<ADMIN
+#!/bin/bash
+set -euo pipefail
+
+mkdir -p "${ZIEL}"
+rsync -a --delete "${AUFBAU}/" "${ZIEL}/"
+chmod -R a+rX "${ZIEL}"
+ADMIN
+
+# Braucht es überhaupt Rechte? Die Probe ist ein Schreibversuch, keine
+# Rechteprüfung – ob ein Ordner beschreibbar ist, hängt an mehr als am Besitzer.
+if mkdir -p "${ZIEL}" 2>/dev/null && [ -w "${ZIEL}" ]; then
+  bash "${ADMIN_SKRIPT}"
+elif [ -t 0 ] || [ -t 1 ] || [ -t 2 ]; then
   echo "Für den Zielordner werden Administratorrechte gebraucht."
-  SUDO="sudo"
-  ${SUDO} mkdir -p "${ZIEL}"
+  sudo bash "${ADMIN_SKRIPT}"
+else
+  # Kein Terminal – also auch keine Stelle, an der `sudo` fragen könnte.
+  # macOS bringt den passenden Dialog mit.
+  echo "Für den Zielordner werden Administratorrechte gebraucht (Dialog)."
+  osascript -e "do shell script \"/bin/bash \" & quoted form of \"${ADMIN_SKRIPT}\" with administrator privileges" >/dev/null
 fi
 
-# `--delete-excluded` zusätzlich zu `--delete`: Ohne das bleiben ausgeschlossene
-# Dateien im Zielordner stehen, wenn sie einmal dorthin geraten sind.
-${SUDO} rsync -a --delete --delete-excluded \
-  --exclude '.git' \
-  --exclude '.github' \
-  --exclude '.claude' \
-  --exclude '.DS_Store' \
-  --exclude 'node_modules' \
-  --exclude 'package-lock.json' \
-  --exclude 'test' \
-  --exclude 'docs' \
-  --exclude 'install.sh' \
-  --exclude 'install.ps1' \
-  --exclude '.gitignore' \
-  "${QUELLE}/" "${ZIEL}/"
-
-${SUDO} cp "${NODE_MODUL}" "${ZIEL}/WorkflowIntegration.node"
-${SUDO} chmod -R a+rX "${ZIEL}"
+echo "Plugin installiert: ${ZIEL}"
 
 # ------------------------------------------------------------- Vorgaben
 # JSON von Hand schreiben statt eine Sprache dafür vorauszusetzen: Auf einem

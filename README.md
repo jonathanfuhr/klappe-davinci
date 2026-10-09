@@ -54,14 +54,62 @@ Nutzlast dahinter.
 ./tools/installer-bauen.sh
 ```
 
-Das Skript tut drei Dinge:
+Das Skript tut vier Dinge:
 
-1. baut `dist/klappe-installer.sh` (~190 KB),
+1. baut `dist/klappe-installer.sh`,
 2. **übernimmt den Werteblock** aus der Datei, die am Ablageort schon liegt,
-3. legt das Ergebnis dort ab: `/Volumes/03_Tauschordner/_IT/klappe-davinci-installer.sh`.
+3. baut daraus `dist/Klappe-Panel installieren.app` – denselben Installer zum
+   Doppelklicken,
+4. legt beides im Tauschordner ab (`03_Tauschordner/_IT/`).
 
-Auf dem Zielrechner also nur noch hinüberkopieren und ausführen – die Werte des
-Hauses stehen schon drin.
+Auf dem Zielrechner also nur noch doppelklicken – die Werte des Hauses stehen
+schon drin.
+
+### Die .app zum Doppelklicken
+
+Ein `.sh` auf einem Netzlaufwerk sind für Kollegen drei Hürden: Terminal
+öffnen, Pfad hintippen, vielleicht noch `chmod +x`. Die App ist ein
+Doppelklick, ein Dialog, fertig.
+
+Darin steckt **genau derselbe** selbsttragende Installer – dieselbe Nutzlast,
+derselbe Werteblock. Zwei Wege zum gleichen Ergebnis, nicht zwei Installer, die
+auseinanderlaufen können; gebaut wird die App aus der `.sh`, und das Bauskript
+prüft hinterher, dass beide dieselben Werte nennen.
+
+Der Ablauf beim Kollegen:
+
+1. Doppelklick.
+2. **Ein Dialog zeigt, was installiert wird** – Server, vorgewähltes Preset,
+   Ablagepfade, Tastenkürzel. Das ist der wichtigste Schritt: Ein Installer,
+   der auf Doppelklick losläuft, ist einer, bei dem niemand merkt, dass er die
+   falsche Datei erwischt hat. Setzt der Werteblock die eigenen Einstellungen
+   zurück, steht auch das dort.
+3. macOS fragt nach dem Administrator-Passwort – aber nur für den
+   Plugin-Ordner unter `/Library`, und nur, wenn der nicht ohnehin
+   beschreibbar ist.
+4. Eine Meldung am Ende, mit der vollständigen Ausgabe zum Nachlesen.
+
+> **Nur der Schreibzugriff auf `/Library` läuft erhöht**, nicht der ganze
+> Installer. Liefe alles als `root`, landeten `vorgaben.json` und das
+> Tastenkürzel in `/var/root` – also bei niemandem. Deshalb stellt das Skript
+> erst unprivilegiert zusammen, was in den Plugin-Ordner gehört, und lässt
+> genau diesen einen Block erhöht laufen: einmal fragen statt viermal, und die
+> Anführungszeichen bleiben beherrschbar.
+>
+> Ohne Terminal kann `sudo` nicht nach dem Passwort fragen. Das Skript merkt
+> das (kein TTY) und nimmt dann `osascript … with administrator privileges` –
+> den Dialog, den macOS dafür mitbringt. Mit Terminal bleibt es bei `sudo`.
+
+Die App ist **ad hoc unterschrieben**, nicht notarisiert. Über die Freigabe
+kommt normalerweise kein Quarantäne-Merkmal mit (das Bauskript entfernt eins
+vorsichtshalber), dann startet sie ohne Rückfrage. Landet sie doch einmal über
+Download oder AirDrop auf einem Rechner, hilft Rechtsklick → **Öffnen**.
+
+Was in der Datei steht, verrät sie auch ohne Installieren:
+
+```bash
+./klappe-davinci-installer.sh --werte
+```
 
 > **Warum der Werteblock übernommen wird.** Serveradresse, Ablagepfade und das
 > vorgewählte Preset stehen oben in der Datei, und dort hat sie jemand
